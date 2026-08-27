@@ -436,11 +436,7 @@
             device = await navigator.bluetooth.requestDevice({
                 // Ganti dengan filter yang sesuai dengan BMS-mu
                 // Contoh: nama perangkat atau service UUID
-                filters: [
-                    { name: 'BMS' },
-                    { namePrefix: 'BMS' },
-                    { name: 'ESP32_BMS' }
-                ],
+                
                 optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] // UUID umum untuk BMS / UART
             });
 
