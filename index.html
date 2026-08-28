@@ -433,10 +433,12 @@
         try {
             logTerminal('🔍 Mencari perangkat BMS...', 'info');
 
+            // Perbaikan: Gunakan filters ATAU acceptAllDevices, tidak keduanya
             device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-});
+                filters: [
+                    { services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }
+                ]
+            });
 
             logTerminal(`✅ Terhubung ke: ${device.name || 'Tanpa Nama'}`, 'info');
 
