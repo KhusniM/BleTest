@@ -71,38 +71,39 @@
             box-shadow: 0 0 20px #00ff88aa;
         }
 
+        /* BMS Grid Utama */
         .bms-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 24px;
+            gap: 10px;
+            margin-bottom: 16px;
         }
 
         .bms-card {
             background: rgba(0, 20, 40, 0.5);
-            border-radius: 18px;
-            padding: 14px 12px;
+            border-radius: 16px;
+            padding: 12px 10px;
             border: 1px solid rgba(0, 255, 255, 0.08);
             text-align: center;
         }
 
         .bms-card .label {
-            font-size: 10px;
+            font-size: 9px;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1.5px;
             color: #6a7f9e;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .bms-card .value {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
             color: #d0e5ff;
             font-variant-numeric: tabular-nums;
         }
 
         .bms-card .unit {
-            font-size: 12px;
+            font-size: 11px;
             color: #4a6a8a;
             margin-left: 2px;
         }
@@ -112,16 +113,82 @@
             background: rgba(0, 255, 200, 0.05);
         }
 
+        .bms-card.warning {
+            border-color: rgba(255, 200, 0, 0.3);
+            background: rgba(255, 200, 0, 0.05);
+        }
+
+        .bms-card.danger {
+            border-color: rgba(255, 60, 60, 0.3);
+            background: rgba(255, 60, 60, 0.05);
+        }
+
+        /* Dashboard Grid - Indikator Tambahan */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .dashboard-card {
+            background: rgba(0, 20, 40, 0.4);
+            border-radius: 12px;
+            padding: 10px 8px;
+            border: 1px solid rgba(0, 255, 255, 0.05);
+            text-align: center;
+        }
+
+        .dashboard-card .label {
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #5a6f8e;
+            margin-bottom: 1px;
+        }
+
+        .dashboard-card .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #c0d5ef;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .dashboard-card .unit {
+            font-size: 10px;
+            color: #4a6a8a;
+        }
+
+        .dashboard-card .sub {
+            font-size: 9px;
+            color: #4a6a8a;
+            display: block;
+            margin-top: 1px;
+        }
+
+        .dashboard-card.highlight {
+            border-color: rgba(0, 255, 200, 0.2);
+        }
+
+        .dashboard-card.green .value { color: #6fcf97; }
+        .dashboard-card.red .value { color: #ff6b6b; }
+        .dashboard-card.orange .value { color: #ffab40; }
+        .dashboard-card.blue .value { color: #4fc3f7; }
+        .dashboard-card.purple .value { color: #b39ddb; }
+        .dashboard-card.cyan .value { color: #4dd0e1; }
+        .dashboard-card.yellow .value { color: #ffd54f; }
+        .dashboard-card.pink .value { color: #f48fb1; }
+
         .terminal {
             background: rgba(0, 10, 20, 0.7);
-            border-radius: 20px;
-            padding: 16px;
-            height: 200px;
+            border-radius: 16px;
+            padding: 14px;
+            height: 160px;
             overflow-y: auto;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             border: 1px solid rgba(0, 255, 255, 0.06);
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 10px;
+            font-size: 9px;
             line-height: 1.5;
             color: #8bb4d8;
             scroll-behavior: smooth;
@@ -154,7 +221,7 @@
         .terminal .ping { color: #78909c; }
         .terminal .data { color: #ffffff; }
         .terminal .header-info { color: #4dd0e1; }
-        .terminal .raw-data { color: #ffcc80; font-size: 9px; word-break: break-all; }
+        .terminal .raw-data { color: #ffcc80; font-size: 8px; word-break: break-all; }
         .terminal .terminator { color: #ff6b6b; }
         .terminal .cell-data { color: #81c784; }
         .terminal .temp-data { color: #ffab91; }
@@ -162,7 +229,7 @@
 
         .progress-container {
             width: 100%;
-            height: 4px;
+            height: 3px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 2px;
             margin-bottom: 12px;
@@ -184,19 +251,19 @@
 
         .input-row {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         .input-row input {
             flex: 1;
-            padding: 14px 18px;
+            padding: 12px 16px;
             border-radius: 60px;
             border: 1px solid rgba(0, 255, 255, 0.15);
             background: rgba(0, 20, 40, 0.6);
             color: #d0e5ff;
-            font-size: 15px;
+            font-size: 14px;
             outline: none;
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
         }
@@ -210,17 +277,17 @@
         }
 
         .btn {
-            padding: 14px 22px;
+            padding: 12px 18px;
             border: none;
             border-radius: 60px;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             cursor: pointer;
             transition: 0.25s;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 5px;
             white-space: nowrap;
         }
 
@@ -254,7 +321,7 @@
 
         .btn-group {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
@@ -289,13 +356,16 @@
         }
 
         @media (max-width: 420px) {
-            .container { padding: 18px 14px 24px; }
-            .bms-grid { gap: 8px; }
-            .bms-card .value { font-size: 18px; }
+            .container { padding: 16px 12px 20px; }
+            .bms-grid { gap: 6px; }
+            .bms-card .value { font-size: 17px; }
+            .dashboard-grid { gap: 5px; }
+            .dashboard-card .value { font-size: 14px; }
             .input-row { flex-wrap: wrap; }
             .input-row input { min-width: 100%; }
             .btn-group { width: 100%; }
-            .btn-group .btn { flex: 1; }
+            .btn-group .btn { flex: 1; font-size: 11px; padding: 10px 12px; }
+            .terminal { height: 120px; font-size: 8px; }
         }
     </style>
 </head>
@@ -310,9 +380,10 @@
         </div>
     </div>
 
+    <!-- BMS Grid Utama -->
     <div class="bms-grid">
         <div class="bms-card highlight">
-            <div class="label">Tegangan</div>
+            <div class="label">Tegangan Pack</div>
             <div class="value"><span id="bmsVoltage">--</span><span class="unit">V</span></div>
         </div>
         <div class="bms-card highlight">
@@ -324,8 +395,57 @@
             <div class="value"><span id="bmsSoc">--</span><span class="unit">%</span></div>
         </div>
         <div class="bms-card">
-            <div class="label">Suhu MOS</div>
-            <div class="value"><span id="bmsTemp">--</span><span class="unit">°C</span></div>
+            <div class="label">Siklus</div>
+            <div class="value"><span id="bmsCycle">--</span><span class="unit">x</span></div>
+        </div>
+    </div>
+
+    <!-- Dashboard Grid - Indikator Detail -->
+    <div class="dashboard-grid">
+        <div class="dashboard-card highlight green">
+            <div class="label">Max Cell</div>
+            <div class="value"><span id="dashMaxCell">--</span><span class="unit">V</span></div>
+            <span class="sub" id="dashMaxCellNum">Cell #--</span>
+        </div>
+        <div class="dashboard-card highlight red">
+            <div class="label">Min Cell</div>
+            <div class="value"><span id="dashMinCell">--</span><span class="unit">V</span></div>
+            <span class="sub" id="dashMinCellNum">Cell #--</span>
+        </div>
+        <div class="dashboard-card orange">
+            <div class="label">Delta V</div>
+            <div class="value"><span id="dashDelta">--</span><span class="unit">mV</span></div>
+            <span class="sub" id="dashDeltaStatus">--</span>
+        </div>
+        <div class="dashboard-card purple">
+            <div class="label">Power</div>
+            <div class="value"><span id="dashPower">--</span><span class="unit">W</span></div>
+            <span class="sub" id="dashPowerStatus">Idle</span>
+        </div>
+        <div class="dashboard-card cyan">
+            <div class="label">MOSFET Temp</div>
+            <div class="value"><span id="dashMosTemp">--</span><span class="unit">°C</span></div>
+            <span class="sub" id="dashMosStatus">--</span>
+        </div>
+        <div class="dashboard-card blue">
+            <div class="label">Temp 1</div>
+            <div class="value"><span id="dashTemp1">--</span><span class="unit">°C</span></div>
+            <span class="sub" id="dashTemp1Status">--</span>
+        </div>
+        <div class="dashboard-card pink">
+            <div class="label">Temp 2</div>
+            <div class="value"><span id="dashTemp2">--</span><span class="unit">°C</span></div>
+            <span class="sub" id="dashTemp2Status">--</span>
+        </div>
+        <div class="dashboard-card yellow">
+            <div class="label">Kapasitas</div>
+            <div class="value"><span id="dashCapacity">--</span><span class="unit">Ah</span></div>
+            <span class="sub" id="dashCapacityPct">--</span>
+        </div>
+        <div class="dashboard-card highlight">
+            <div class="label">Sel Aktif</div>
+            <div class="value"><span id="dashActiveCells">--</span><span class="unit">cell</span></div>
+            <span class="sub" id="dashBmsType">--</span>
         </div>
     </div>
 
@@ -338,7 +458,7 @@
         <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Deteksi Header: 55 AA EB 90</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Deteksi Terminator: 41 54 0D 0A</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Mapping offset sesuai reverse engineering</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Mapping offset reverse engineering</span></div>
     </div>
 
     <div class="input-row">
@@ -372,10 +492,31 @@
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
 
+    // BMS Grid Utama
     const bmsVoltage = document.getElementById('bmsVoltage');
     const bmsCurrent = document.getElementById('bmsCurrent');
     const bmsSoc = document.getElementById('bmsSoc');
-    const bmsTemp = document.getElementById('bmsTemp');
+    const bmsCycle = document.getElementById('bmsCycle');
+
+    // Dashboard
+    const dashMaxCell = document.getElementById('dashMaxCell');
+    const dashMinCell = document.getElementById('dashMinCell');
+    const dashDelta = document.getElementById('dashDelta');
+    const dashPower = document.getElementById('dashPower');
+    const dashMosTemp = document.getElementById('dashMosTemp');
+    const dashTemp1 = document.getElementById('dashTemp1');
+    const dashTemp2 = document.getElementById('dashTemp2');
+    const dashCapacity = document.getElementById('dashCapacity');
+    const dashActiveCells = document.getElementById('dashActiveCells');
+    const dashMaxCellNum = document.getElementById('dashMaxCellNum');
+    const dashMinCellNum = document.getElementById('dashMinCellNum');
+    const dashDeltaStatus = document.getElementById('dashDeltaStatus');
+    const dashPowerStatus = document.getElementById('dashPowerStatus');
+    const dashMosStatus = document.getElementById('dashMosStatus');
+    const dashTemp1Status = document.getElementById('dashTemp1Status');
+    const dashTemp2Status = document.getElementById('dashTemp2Status');
+    const dashCapacityPct = document.getElementById('dashCapacityPct');
+    const dashBmsType = document.getElementById('dashBmsType');
 
     // ============================================================
     // 2. STATE
@@ -440,6 +581,8 @@
             const cellVoltages = [];
             let minVoltage = 100;
             let maxVoltage = 0;
+            let minCellIndex = 0;
+            let maxCellIndex = 0;
             let totalVoltage = 0;
             let validCells = 0;
 
@@ -454,8 +597,14 @@
                 if (voltage > 0.1) {
                     totalVoltage += voltage;
                     validCells++;
-                    if (voltage < minVoltage) minVoltage = voltage;
-                    if (voltage > maxVoltage) maxVoltage = voltage;
+                    if (voltage < minVoltage) {
+                        minVoltage = voltage;
+                        minCellIndex = i + 1;
+                    }
+                    if (voltage > maxVoltage) {
+                        maxVoltage = voltage;
+                        maxCellIndex = i + 1;
+                    }
                 }
             }
 
@@ -520,8 +669,8 @@
             let batteryType = 'Unknown';
             if (data.length > 243) {
                 const typeCode = data[243] || 0;
-                if (typeCode === 0) batteryType = 'LFP (LiFePO4)';
-                else if (typeCode === 1) batteryType = 'Li-ion (NMC)';
+                if (typeCode === 0) batteryType = 'LFP';
+                else if (typeCode === 1) batteryType = 'NMC';
                 else if (typeCode === 2) batteryType = 'LTO';
             }
 
@@ -560,14 +709,21 @@
                     chargingMOS: false,
                     dischargingMOS: false,
                     balancing: false,
-                    balancingCells: []
+                    balancingCells: [],
+                    minCellVoltage: minVoltage === 100 ? 0 : minVoltage,
+                    maxCellVoltage: maxVoltage,
+                    minCellIndex: minCellIndex,
+                    maxCellIndex: maxCellIndex,
+                    validCells: validCells
                 },
                 statistics: {
                     minCellVoltage: minVoltage === 100 ? 0 : minVoltage,
                     maxCellVoltage: maxVoltage,
                     averageCellVoltage: validCells > 0 ? totalVoltage / validCells : 0,
                     deltaVoltage: deltaVoltage,
-                    validCells: validCells
+                    validCells: validCells,
+                    minCellIndex: minCellIndex,
+                    maxCellIndex: maxCellIndex
                 },
                 raw: {
                     remainingData: remainingHex,
@@ -592,16 +748,19 @@
                 result.status.dischargingMOS = false;
                 result.status.chargingPower = current * totalVoltagePack;
                 result.status.dischargingPower = 0;
+                result.status.powerStatus = 'Charging';
             } else if (current < -0.1) {
                 result.status.chargingMOS = false;
                 result.status.dischargingMOS = true;
                 result.status.chargingPower = 0;
                 result.status.dischargingPower = Math.abs(current) * totalVoltagePack;
+                result.status.powerStatus = 'Discharging';
             } else {
                 result.status.chargingMOS = false;
                 result.status.dischargingMOS = false;
                 result.status.chargingPower = 0;
                 result.status.dischargingPower = 0;
+                result.status.powerStatus = 'Idle';
             }
 
             // Balance status
@@ -633,7 +792,7 @@
             }
             
             lines.push(`📊 Avg Cell: ${s.avgCellVoltage.toFixed(3)}V | Delta: ${s.deltaVoltage.toFixed(3)}V`);
-            lines.push(`📈 Min: ${result.statistics.minCellVoltage.toFixed(3)}V | Max: ${result.statistics.maxCellVoltage.toFixed(3)}V`);
+            lines.push(`📈 Min: ${s.minCellVoltage.toFixed(3)}V (Cell ${s.minCellIndex}) | Max: ${s.maxCellVoltage.toFixed(3)}V (Cell ${s.maxCellIndex})`);
             
             if (s.balancing) {
                 lines.push(`⚖️ Balancing: ON (Cells: ${s.balancingCells.join(', ')})`);
@@ -641,10 +800,10 @@
                 lines.push(`⚖️ Balancing: OFF`);
             }
             
-            if (s.chargingMOS) {
-                lines.push(`⚡ Charging: ON (${s.chargingPower.toFixed(1)}W)`);
-            } else if (s.dischargingMOS) {
-                lines.push(`🔋 Discharging: ON (${s.dischargingPower.toFixed(1)}W)`);
+            if (s.powerStatus === 'Charging') {
+                lines.push(`⚡ Charging: ${s.chargingPower.toFixed(1)}W`);
+            } else if (s.powerStatus === 'Discharging') {
+                lines.push(`🔋 Discharging: ${s.dischargingPower.toFixed(1)}W`);
             } else {
                 lines.push(`💤 Idle`);
             }
@@ -667,12 +826,6 @@
                 .map(c => `${c.cell}:${c.voltage.toFixed(3)}V`)
                 .join(', ');
             lines.push(`🔋 Cells: ${cellPreview}${h.totalCells > 8 ? ' ...' : ''}`);
-            
-            // Show remaining data preview if exists
-            if (result.raw.remainingData && result.raw.remainingData.length > 0) {
-                const preview = result.raw.remainingData.substring(0, 80);
-                lines.push(`📄 Remaining: ${preview}${result.raw.remainingData.length > 80 ? ' ...' : ''}`);
-            }
             
             return lines;
         }
@@ -747,28 +900,146 @@
     }
 
     // ============================================================
-    // 6. UPDATE UI BMS
+    // 6. UPDATE UI BMS & DASHBOARD
     // ============================================================
-    function updateBmsUI(data) {
-        if (data.voltage !== undefined && !isNaN(data.voltage) && data.voltage > 0) {
-            bmsVoltage.textContent = data.voltage.toFixed(2);
+    function updateAllUI(result) {
+        const s = result.status;
+        const stat = result.statistics;
+        
+        // BMS Grid Utama
+        if (s.totalVoltage !== undefined && !isNaN(s.totalVoltage) && s.totalVoltage > 0) {
+            bmsVoltage.textContent = s.totalVoltage.toFixed(2);
         }
-        if (data.current !== undefined && !isNaN(data.current)) {
-            bmsCurrent.textContent = data.current.toFixed(2);
+        if (s.current !== undefined && !isNaN(s.current)) {
+            bmsCurrent.textContent = s.current.toFixed(2);
         }
-        if (data.soc !== undefined && !isNaN(data.soc) && data.soc >= 0 && data.soc <= 100) {
-            bmsSoc.textContent = data.soc.toFixed(1);
+        if (s.soc !== undefined && !isNaN(s.soc) && s.soc >= 0 && s.soc <= 100) {
+            bmsSoc.textContent = s.soc.toFixed(1);
         }
-        if (data.temperature !== undefined && !isNaN(data.temperature)) {
-            bmsTemp.textContent = data.temperature.toFixed(1);
+        if (s.cycleCount !== undefined && !isNaN(s.cycleCount)) {
+            bmsCycle.textContent = s.cycleCount;
+        }
+
+        // Dashboard - Max Cell
+        if (stat.maxCellVoltage > 0) {
+            dashMaxCell.textContent = stat.maxCellVoltage.toFixed(3);
+            dashMaxCellNum.textContent = `Cell #${stat.maxCellIndex}`;
+        }
+
+        // Dashboard - Min Cell
+        if (stat.minCellVoltage > 0) {
+            dashMinCell.textContent = stat.minCellVoltage.toFixed(3);
+            dashMinCellNum.textContent = `Cell #${stat.minCellIndex}`;
+        }
+
+        // Dashboard - Delta V (dalam mV)
+        if (s.deltaVoltage !== undefined && !isNaN(s.deltaVoltage)) {
+            const deltaMv = s.deltaVoltage * 1000;
+            dashDelta.textContent = deltaMv.toFixed(1);
+            // Status Delta
+            if (deltaMv < 10) {
+                dashDeltaStatus.textContent = '✅ Seimbang';
+                dashDeltaStatus.style.color = '#6fcf97';
+            } else if (deltaMv < 30) {
+                dashDeltaStatus.textContent = '⚠️ Cukup';
+                dashDeltaStatus.style.color = '#ffab40';
+            } else {
+                dashDeltaStatus.textContent = '❌ Tidak Seimbang';
+                dashDeltaStatus.style.color = '#ff6b6b';
+            }
+        }
+
+        // Dashboard - Power
+        if (s.power !== undefined && !isNaN(s.power)) {
+            dashPower.textContent = Math.abs(s.power).toFixed(1);
+            dashPowerStatus.textContent = s.powerStatus || 'Idle';
+            if (s.powerStatus === 'Charging') {
+                dashPowerStatus.style.color = '#6fcf97';
+            } else if (s.powerStatus === 'Discharging') {
+                dashPowerStatus.style.color = '#ffab40';
+            } else {
+                dashPowerStatus.style.color = '#4a6a8a';
+            }
+        }
+
+        // Dashboard - MOSFET Temp
+        if (s.mosTemp !== undefined && s.mosTemp !== null && s.mosTemp > -50 && s.mosTemp < 150) {
+            dashMosTemp.textContent = s.mosTemp.toFixed(1);
+            if (s.mosTemp < 50) {
+                dashMosStatus.textContent = '✅ Normal';
+                dashMosStatus.style.color = '#6fcf97';
+            } else if (s.mosTemp < 70) {
+                dashMosStatus.textContent = '⚠️ Hangat';
+                dashMosStatus.style.color = '#ffab40';
+            } else {
+                dashMosStatus.textContent = '❌ Panas!';
+                dashMosStatus.style.color = '#ff6b6b';
+            }
+        }
+
+        // Dashboard - Temp 1
+        if (s.temp1 !== undefined && s.temp1 !== null && s.temp1 > -50 && s.temp1 < 150) {
+            dashTemp1.textContent = s.temp1.toFixed(1);
+            dashTemp1Status.textContent = '✅ Terpasang';
+            dashTemp1Status.style.color = '#6fcf97';
+        } else {
+            dashTemp1.textContent = '--';
+            dashTemp1Status.textContent = '⛔ Tidak ada';
+            dashTemp1Status.style.color = '#4a6a8a';
+        }
+
+        // Dashboard - Temp 2
+        if (s.temp2 !== undefined && s.temp2 !== null && s.temp2 > -50 && s.temp2 < 150) {
+            dashTemp2.textContent = s.temp2.toFixed(1);
+            dashTemp2Status.textContent = '✅ Terpasang';
+            dashTemp2Status.style.color = '#6fcf97';
+        } else {
+            dashTemp2.textContent = '--';
+            dashTemp2Status.textContent = '⛔ Tidak ada';
+            dashTemp2Status.style.color = '#4a6a8a';
+        }
+
+        // Dashboard - Capacity
+        if (s.capacityRemain !== undefined && s.capacityNominal !== undefined) {
+            dashCapacity.textContent = s.capacityRemain.toFixed(2);
+            const pct = (s.capacityRemain / s.capacityNominal * 100);
+            dashCapacityPct.textContent = `${pct.toFixed(1)}% dari ${s.capacityNominal.toFixed(1)}Ah`;
+        }
+
+        // Dashboard - Active Cells
+        if (result.header.totalCells !== undefined) {
+            dashActiveCells.textContent = result.header.totalCells;
+            dashBmsType.textContent = s.batteryType || 'Unknown';
         }
     }
 
-    function resetBmsUI() {
+    function resetAllUI() {
+        // BMS Grid Utama
         bmsVoltage.textContent = '--';
         bmsCurrent.textContent = '--';
         bmsSoc.textContent = '--';
-        bmsTemp.textContent = '--';
+        bmsCycle.textContent = '--';
+
+        // Dashboard
+        dashMaxCell.textContent = '--';
+        dashMinCell.textContent = '--';
+        dashDelta.textContent = '--';
+        dashPower.textContent = '--';
+        dashMosTemp.textContent = '--';
+        dashTemp1.textContent = '--';
+        dashTemp2.textContent = '--';
+        dashCapacity.textContent = '--';
+        dashActiveCells.textContent = '--';
+
+        dashMaxCellNum.textContent = 'Cell #--';
+        dashMinCellNum.textContent = 'Cell #--';
+        dashDeltaStatus.textContent = '--';
+        dashPowerStatus.textContent = 'Idle';
+        dashMosStatus.textContent = '--';
+        dashTemp1Status.textContent = '--';
+        dashTemp2Status.textContent = '--';
+        dashCapacityPct.textContent = '--';
+        dashBmsType.textContent = '--';
     }
 
     // ============================================================
@@ -810,7 +1081,6 @@
         
         logTerminal(`RAW DATA (${dataLength} bytes): ${hexStr}`, 'raw');
         
-        // Cek ping (4 bytes tanpa header)
         if (dataLength === 4 && !isBMSHeader(Array.from(bytes))) {
             logTerminal(`Ping: ${hexStr} (diabaikan)`, 'ping');
             return;
@@ -894,13 +1164,8 @@
             const result = parser.parse(data);
             
             if (result) {
-                // Update UI
-                updateBmsUI({
-                    voltage: result.status.totalVoltage,
-                    current: result.status.current,
-                    soc: result.status.soc,
-                    temperature: result.status.mosTemp || 0
-                });
+                // Update semua UI
+                updateAllUI(result);
 
                 const outputLines = parser.formatOutput(result);
                 for (const line of outputLines) {
@@ -990,7 +1255,7 @@
 
         } catch (error) {
             logTerminal(`Error: ${error.message}`, 'error');
-            resetBmsUI();
+            resetAllUI();
             updateStatus(false);
             resetCollector();
         }
@@ -1042,7 +1307,7 @@
         server = null;
         characteristic = null;
         updateStatus(false);
-        resetBmsUI();
+        resetAllUI();
         resetCollector();
         logTerminal('Koneksi diputus', 'error');
     }
@@ -1053,7 +1318,7 @@
         logTerminal('📦 Deteksi Header: 55 AA EB 90', 'info');
         logTerminal('📶 Deteksi Terminator: 41 54 0D 0A', 'info');
         logTerminal('📄 Mapping offset reverse engineering', 'info');
-        resetBmsUI();
+        resetAllUI();
         resetCollector();
     }
 
