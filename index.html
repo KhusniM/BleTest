@@ -202,6 +202,9 @@
         .terminal .crc-err {
             color: #ff5252;
         }
+        .terminal .packet-info {
+            color: #b39ddb;
+        }
 
         /* ========== PROGRESS BAR ========== */
         .progress-container {
@@ -390,8 +393,8 @@
     <div class="terminal" id="terminalLog">
         <div><span class="time">[system]</span> <span class="info">▶ Siap menerima data BMS</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Data akan ditampilkan dalam format HEX</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Data diterima dalam 3 tahap (128+128+48 bytes)</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Hanya menampilkan ringkasan data</span></div>
     </div>
 
     <!-- INPUT + TOMBOL -->
@@ -443,8 +446,8 @@
     let dataBuffer = [];
     let expectedTotalBytes = 304; // 128 + 128 + 48
     let packetCount = 0;
-    let isCollectingData = false;
     let dataTimer = null;
+    let packetSizes = [];
 
     // ============================================================
     // 3.  CRC CALCULATION (CRC16/XMODEM)
@@ -712,7 +715,7 @@
             let lines = [];
             const s = result.status;
             
-            lines.push(`📊 JK BMS ${result.header.is32S ? '32S' : '24S'} | Cells: ${result.header.totalCells} | Len: ${result.header.dataLength}`);
+            lines.push(`📊 JK BMS ${result.header.is32S ? '32S' : '24S'} | Cells: ${result.header.totalCells}`);
             lines.push(`⚡ Voltage: ${s.totalVoltage.toFixed(2)}V | Current: ${s.current.toFixed(2)}A`);
             lines.push(`🔋 SOC: ${s.soc}% | SOH: ${s.soh}%`);
             lines.push(`📦 Capacity: ${s.capacityRemain.toFixed(1)}/${s.capacityNominal.toFixed(1)}Ah`);
@@ -741,14 +744,6 @@
             if (hours > 0) return `${hours}h ${minutes}m`;
             return `${minutes}m`;
         }
-
-        getCellVoltages(result) {
-            return result.cellVoltages.map(c => c.voltage);
-        }
-
-        getCellResistances(result) {
-            return result.cellResistances.map(c => c.resistance);
-        }
     }
 
     // ============================================================
@@ -768,8 +763,9 @@
             'error': `<span class="time">[${time}]</span> <span class="error">❌ ${message}</span>`,
             'warning': `<span class="time">[${time}]</span> <span class="warning">⚠️ ${message}</span>`,
             'progress': `<span class="time">[${time}]</span> <span class="progress">⏳ ${message}</span>`,
-            'crc-ok': `<span class="time">[${time}]</span> <span class="crc-ok">✅ CRC: ${message}</span>`,
-            'crc-err': `<span class="time">[${time}]</span> <span class="crc-err">❌ CRC: ${message}</span>`,
+            'crc-ok': `<span class="time">[${time}]</span> <span class="crc-ok">✅ ${message}</span>`,
+            'crc-err': `<span class="time">[${time}]</span> <span class="crc-err">❌ ${message}</span>`,
+            'packet': `<span class="time">[${time}]</span> <span class="packet-info">📦 ${message}</span>`,
             'data': `<span class="time">[${time}]</span> ${message}`,
         };
         
@@ -783,7 +779,7 @@
     }
 
     // ============================================================
-    // 6.  KONVERSI DATA KE HEX
+    // 6.  KONVERSI DATA KE HEX (HANYA UNTUK HEADER)
     // ============================================================
     function toHexString(buffer) {
         const bytes = new Uint8Array(buffer);
@@ -804,13 +800,10 @@
         return bytes;
     }
 
-    function arrayToHexString(bytes) {
-        let hex = '';
-        for (let i = 0; i < bytes.length; i++) {
-            hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
-            if (i < bytes.length - 1) hex += ' ';
-        }
-        return hex;
+    function getHeaderHex(bytes) {
+        if (bytes.length < 16) return toHexString(new Uint8Array(bytes));
+        const header = bytes.slice(0, 16);
+        return toHexString(new Uint8Array(header)) + ' ...';
     }
 
     // ============================================================
@@ -857,11 +850,13 @@
     // ============================================================
     function handleBmsData(buffer) {
         const bytes = new Uint8Array(buffer);
-        const hexString = toHexString(buffer);
+        const dataLength = bytes.length;
         
-        // Tampilkan data yang diterima
-        logTerminal(`📦 Packet ${packetCount + 1}: ${bytes.length} bytes`, 'progress');
-        logTerminal(hexString, 'hex_rx');
+        // Simpan ukuran packet
+        packetSizes.push(dataLength);
+        
+        // Log packet info (tanpa data HEX lengkap)
+        logTerminal(`Packet #${packetCount + 1}: ${dataLength} bytes | Header: ${getHeaderHex(Array.from(bytes))}`, 'packet');
         
         // Tambahkan ke buffer
         dataBuffer.push(...Array.from(bytes));
@@ -892,23 +887,19 @@
             return;
         }
 
-        logTerminal(`📊 Total data terkumpul: ${dataBuffer.length} bytes`, 'progress');
+        const totalBytes = dataBuffer.length;
+        const packetInfo = packetSizes.join(' + ');
         
-        // Tampilkan data lengkap dalam HEX
-        const fullHex = arrayToHexString(dataBuffer);
-        logTerminal(`📦 Full Data: ${fullHex.substring(0, 200)}${fullHex.length > 200 ? '...' : ''}`, 'hex_rx');
+        logTerminal(`📊 Total data terkumpul: ${totalBytes} bytes (${packetInfo})`, 'progress');
 
         // Cek CRC
         try {
-            // CRC adalah byte terakhir (offset terakhir)
             const receivedCRC = dataBuffer[dataBuffer.length - 1];
             const dataWithoutCRC = dataBuffer.slice(0, dataBuffer.length - 1);
-            const calculatedCRC = calculateCRC16(dataWithoutCRC) & 0xFF; // Ambil 1 byte CRC
-            
-            logTerminal(`CRC: Received=${receivedCRC.toString(16).padStart(2, '0').toUpperCase()}, Calculated=${calculatedCRC.toString(16).padStart(2, '0').toUpperCase()}`, 'info');
+            const calculatedCRC = calculateCRC16(dataWithoutCRC) & 0xFF;
             
             if (receivedCRC === calculatedCRC) {
-                logTerminal(`CRC OK (0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()})`, 'crc-ok');
+                logTerminal(`CRC: 0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()} ✓`, 'crc-ok');
                 
                 // Parse data dengan JK BMS Parser
                 try {
@@ -924,12 +915,12 @@
                             temperature: result.temperatures[0]?.temp || 0
                         });
 
-                        // Tampilkan hasil parsing
+                        // Tampilkan hasil parsing (ringkasan)
                         const outputLines = parser.formatOutput(result);
                         for (const line of outputLines) {
                             logTerminal(line, 'data');
                         }
-                        logTerminal(`✅ JK BMS Parsing berhasil (${result.header.totalCells} cells, ${result.header.dataLength} bytes)`, 'success');
+                        logTerminal(`✅ Parsing berhasil (${result.header.totalCells} cells)`, 'success');
                     }
                 } catch (parseError) {
                     logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error');
@@ -941,31 +932,14 @@
                             logTerminal('✅ Simple parsing berhasil (fallback)', 'success');
                         }
                     } catch (e) {
-                        logTerminal(`⚠️ Fallback parser error: ${e.message}`, 'error');
+                        logTerminal(`⚠️ Fallback error: ${e.message}`, 'error');
                     }
                 }
             } else {
-                logTerminal(`CRC Mismatch! Received: 0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()}, Calculated: 0x${calculatedCRC.toString(16).padStart(2, '0').toUpperCase()}`, 'crc-err');
-                
-                // Coba parse tanpa CRC (untuk debugging)
-                try {
-                    const parser = new JKBMSParser();
-                    const result = parser.parse(dataBuffer);
-                    if (result) {
-                        logTerminal('⚠️ Data diparse tanpa validasi CRC (untuk debugging)', 'warning');
-                        updateBmsUI({
-                            voltage: result.status.totalVoltage,
-                            current: result.status.current,
-                            soc: result.status.soc,
-                            temperature: result.temperatures[0]?.temp || 0
-                        });
-                    }
-                } catch (e) {
-                    logTerminal(`⚠️ Parse tanpa CRC gagal: ${e.message}`, 'error');
-                }
+                logTerminal(`CRC Mismatch! Recv: 0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()}, Calc: 0x${calculatedCRC.toString(16).padStart(2, '0').toUpperCase()}`, 'crc-err');
             }
         } catch (crcError) {
-            logTerminal(`⚠️ CRC calculation error: ${crcError.message}`, 'error');
+            logTerminal(`⚠️ CRC error: ${crcError.message}`, 'error');
         }
         
         // Reset collector
@@ -979,14 +953,12 @@
         try {
             if (data.length < 142) return null;
 
-            // Total voltage di offset 118 (4 bytes)
             const voltage = ((data[121] || 0) << 24) | 
                           ((data[120] || 0) << 16) | 
                           ((data[119] || 0) << 8) | 
                           (data[118] || 0);
             const totalVoltage = voltage * 0.001;
             
-            // Current di offset 126 (4 bytes)
             let currentRaw = ((data[129] || 0) << 24) | 
                            ((data[128] || 0) << 16) | 
                            ((data[127] || 0) << 8) | 
@@ -994,10 +966,8 @@
             if (currentRaw > 0x7FFFFFFF) currentRaw = currentRaw - 0x100000000;
             const current = currentRaw * 0.001;
             
-            // SOC di offset 141
             const soc = data[141] || 0;
             
-            // Temperature di offset 130 (2 bytes)
             let tempRaw = ((data[131] || 0) << 8) | (data[130] || 0);
             if (tempRaw > 0x7FFF) tempRaw = tempRaw - 0x10000;
             const temperature = tempRaw * 0.1;
@@ -1017,7 +987,7 @@
     function resetCollector() {
         dataBuffer = [];
         packetCount = 0;
-        isCollectingData = false;
+        packetSizes = [];
         if (dataTimer) {
             clearTimeout(dataTimer);
             dataTimer = null;
@@ -1060,7 +1030,6 @@
             characteristic = await service.getCharacteristic(charUUID);
             logTerminal('✅ Karakteristik ditemukan', 'success');
 
-            // Reset buffer saat koneksi baru
             resetCollector();
 
             if (characteristic.properties.notify) {
@@ -1098,7 +1067,6 @@
         }
 
         try {
-            // Reset buffer sebelum kirim
             resetCollector();
             
             const bytes = hexStringToBytes(hexString);
@@ -1208,11 +1176,10 @@
     logTerminal('🚀 Web BMS Terminal siap', 'info');
     logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
     logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
-    logTerminal('📌 Data akan ditampilkan dalam format HEX', 'info');
+    logTerminal('📦 Data diterima dalam 3 tahap (128+128+48 bytes) dengan CRC', 'info');
+    logTerminal('📌 Hanya menampilkan ringkasan data (header + length)', 'info');
     logTerminal('📌 Tombol DevInfo: AA 55 90 EB 97 ... 11', 'info');
     logTerminal('📌 Tombol BMSInfo: AA 55 90 EB 96 ... 10', 'info');
-    logTerminal('📦 Data diterima dalam 3 tahap (128+128+48 bytes) dengan CRC', 'info');
-    logTerminal('📌 Menggunakan JK BMS Parser resmi', 'info');
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
