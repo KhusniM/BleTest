@@ -173,6 +173,16 @@
             font-weight: bold;
             letter-spacing: 0.5px;
         }
+        .terminal .hex-dev {
+            color: #4fc3f7;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+        .terminal .hex-bms {
+            color: #ffd54f;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
 
         /* ========== INPUT + TOMBOL ========== */
         .input-row {
@@ -252,6 +262,7 @@
         .btn-group {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .btn-success {
@@ -263,13 +274,24 @@
             background: rgba(0, 255, 136, 0.2);
         }
 
-        .btn-hex {
-            background: rgba(187, 134, 252, 0.12);
-            color: #bb86fc;
-            border: 1px solid rgba(187, 134, 252, 0.15);
+        .btn-dev {
+            background: rgba(79, 195, 247, 0.12);
+            color: #4fc3f7;
+            border: 1px solid rgba(79, 195, 247, 0.15);
+            flex: 1;
         }
-        .btn-hex:hover {
-            background: rgba(187, 134, 252, 0.2);
+        .btn-dev:hover {
+            background: rgba(79, 195, 247, 0.2);
+        }
+
+        .btn-bms {
+            background: rgba(255, 213, 79, 0.12);
+            color: #ffd54f;
+            border: 1px solid rgba(255, 213, 79, 0.15);
+            flex: 1;
+        }
+        .btn-bms:hover {
+            background: rgba(255, 213, 79, 0.2);
         }
 
         /* ========== RESPONSIVE ========== */
@@ -279,7 +301,7 @@
             .bms-card .value { font-size: 18px; }
             .input-row { flex-wrap: wrap; }
             .input-row input { min-width: 100%; }
-            .btn-group { width: 100%; justify-content: stretch; }
+            .btn-group { width: 100%; }
             .btn-group .btn { flex: 1; }
         }
     </style>
@@ -332,7 +354,8 @@
 
     <div class="btn-group">
         <button class="btn btn-secondary" id="scanBtn">🔍 Cari BMS</button>
-        <button class="btn btn-hex" id="testBtn">🧪 Test HEX</button>
+        <button class="btn btn-dev" id="devInfoBtn">📱 DevInfo</button>
+        <button class="btn btn-bms" id="bmsInfoBtn">🔋 BMSInfo</button>
         <button class="btn btn-danger" id="disconnectBtn">⛔ Putus</button>
     </div>
 
@@ -346,7 +369,8 @@
     const inputField = document.getElementById('inputField');
     const sendBtn = document.getElementById('sendBtn');
     const scanBtn = document.getElementById('scanBtn');
-    const testBtn = document.getElementById('testBtn');
+    const devInfoBtn = document.getElementById('devInfoBtn');
+    const bmsInfoBtn = document.getElementById('bmsInfoBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const ledIndicator = document.getElementById('ledIndicator');
     const statusText = document.getElementById('statusText');
@@ -376,6 +400,10 @@
             entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex">📥 ${message}</span>`;
         } else if (type === 'hex_tx') {
             entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`;
+        } else if (type === 'hex_dev') {
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex-dev">📱 DEV: ${message}</span>`;
+        } else if (type === 'hex_bms') {
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex-bms">🔋 BMS: ${message}</span>`;
         } else if (type === 'tx') {
             entry.innerHTML = `<span class="time">[${time}]</span> <span class="tx">📤 ${message}</span>`;
         } else if (type === 'success') {
@@ -408,22 +436,28 @@
         return hex;
     }
 
+    function hexStringToBytes(hexString) {
+        const cleanHex = hexString.replace(/\s/g, '');
+        const bytes = [];
+        for (let i = 0; i < cleanHex.length; i += 2) {
+            bytes.push(parseInt(cleanHex.substr(i, 2), 16));
+        }
+        return bytes;
+    }
+
     // ============================================================
     // 5.  UPDATE UI BMS (DARI HEX DATA)
     // ============================================================
     function parseHexToBMS(hexString) {
         try {
-            // Hapus spasi dan convert ke array bytes
             const cleanHex = hexString.replace(/\s/g, '');
             const bytes = [];
             for (let i = 0; i < cleanHex.length; i += 2) {
                 bytes.push(parseInt(cleanHex.substr(i, 2), 16));
             }
 
-            // Coba parse sebagai ASCII
             const ascii = String.fromCharCode(...bytes);
             
-            // Coba parse JSON
             if (ascii.trim().startsWith('{')) {
                 try {
                     const json = JSON.parse(ascii);
@@ -436,7 +470,6 @@
                 } catch (e) {}
             }
 
-            // Coba parse key:value
             const numbers = ascii.match(/[\d.]+/g);
             if (numbers && numbers.length >= 3) {
                 const vals = numbers.map(Number);
@@ -450,7 +483,6 @@
                 }
             }
 
-            // Parse dari bytes langsung (format binary)
             if (bytes.length >= 8) {
                 const voltage = ((bytes[3] << 8) + bytes[4]) / 100;
                 const current = ((bytes[5] << 8) + bytes[6]) / 100;
@@ -494,13 +526,9 @@
     // 6.  HANDLE DATA MASUK DARI BLUETOOTH
     // ============================================================
     function handleBmsData(buffer) {
-        // Konversi ke HEX
         const hexString = toHexString(buffer);
-        
-        // Tampilkan di terminal dalam format HEX (hanya HEX)
         logTerminal(hexString, 'hex_rx');
 
-        // Coba parsing dari HEX
         const parsed = parseHexToBMS(hexString);
         if (parsed) {
             const hasValid = Object.values(parsed).some(v => typeof v === 'number' && !isNaN(v) && v > 0);
@@ -574,46 +602,43 @@
     }
 
     // ============================================================
-    // 8.  KIRIM DATA (HEX FORMAT)
+    // 8.  KIRIM DATA HEX
     // ============================================================
-    async function sendData(text) {
+    async function sendHexData(hexString, logType = 'hex_tx') {
         if (!isConnected || !characteristic) {
             logTerminal('Belum terhubung ke BMS', 'error');
-            return;
+            return false;
         }
 
         try {
-            // Jika input berupa HEX (contoh: "01 03 00 00")
-            let dataToSend;
-            let displayHex = '';
-            
-            if (text.match(/^[0-9A-Fa-f\s]+$/)) {
-                const hexString = text.replace(/\s/g, '');
-                const bytes = [];
-                for (let i = 0; i < hexString.length; i += 2) {
-                    bytes.push(parseInt(hexString.substr(i, 2), 16));
-                }
-                dataToSend = new Uint8Array(bytes);
-                displayHex = text;
-            } else {
-                // Kirim sebagai teks biasa
-                const encoder = new TextEncoder();
-                dataToSend = encoder.encode(text + '\n');
-                displayHex = toHexString(dataToSend);
-            }
-            
+            const bytes = hexStringToBytes(hexString);
+            const dataToSend = new Uint8Array(bytes);
             await characteristic.writeValue(dataToSend);
             
-            // Tampilkan HEX yang dikirim
-            logTerminal(displayHex, 'hex_tx');
-            
+            // Tampilkan HEX yang dikirim dengan tipe log yang sesuai
+            logTerminal(hexString, logType);
+            return true;
         } catch (error) {
             logTerminal(`Gagal kirim: ${error.message}`, 'error');
+            return false;
         }
     }
 
     // ============================================================
-    // 9.  PUTUS KONEKSI
+    // 9.  FUNGSI KIRIM DATA KHUSUS
+    // ============================================================
+    async function sendDevInfo() {
+        const hexData = 'AA 55 90 EB 97 00 00 00 00 00 00 00 00 00 00 00 00 00 11';
+        await sendHexData(hexData, 'hex_dev');
+    }
+
+    async function sendBmsInfo() {
+        const hexData = 'AA 55 90 EB 96 00 00 00 00 00 00 00 00 00 00 00 00 00 10';
+        await sendHexData(hexData, 'hex_bms');
+    }
+
+    // ============================================================
+    // 10. PUTUS KONEKSI
     // ============================================================
     function disconnect() {
         if (device && device.gatt) {
@@ -629,7 +654,7 @@
     }
 
     // ============================================================
-    // 10. UPDATE STATUS UI
+    // 11. UPDATE STATUS UI
     // ============================================================
     function updateStatus(connected) {
         if (connected) {
@@ -642,36 +667,11 @@
     }
 
     // ============================================================
-    // 11. TEST DATA HEX (UNTUK DEBUGGING)
-    // ============================================================
-    function testHexData() {
-        // Contoh data HEX dari BMS
-        const testHexData = [
-            '01 03 02 0C 8A 79 03 7B',
-            '02 01 00 08 00 00 00 00 00 00',
-            '48 65 6C 6C 6F 20 42 4D 53',
-            '01 03 04 12 34 56 78 E5 9A',
-            '7B 22 76 6F 6C 74 61 67 65 22 3A 32 34 2E 35 30 2C 22 63 75 72 72 65 6E 74 22 3A 31 2E 32 33 7D'
-        ];
-        
-        const randomHex = testHexData[Math.floor(Math.random() * testHexData.length)];
-        logTerminal(`Test HEX: ${randomHex}`, 'warning');
-        
-        // Konversi string HEX ke buffer
-        const cleanHex = randomHex.replace(/\s/g, '');
-        const bytes = [];
-        for (let i = 0; i < cleanHex.length; i += 2) {
-            bytes.push(parseInt(cleanHex.substr(i, 2), 16));
-        }
-        const buffer = new Uint8Array(bytes).buffer;
-        handleBmsData(buffer);
-    }
-
-    // ============================================================
     // 12. EVENT LISTENER
     // ============================================================
     scanBtn.addEventListener('click', connectBle);
-    testBtn.addEventListener('click', testHexData);
+    devInfoBtn.addEventListener('click', sendDevInfo);
+    bmsInfoBtn.addEventListener('click', sendBmsInfo);
 
     sendBtn.addEventListener('click', () => {
         const text = inputField.value.trim();
@@ -679,9 +679,30 @@
             logTerminal('Kolom input kosong', 'error');
             return;
         }
-        sendData(text);
+        // Cek apakah input berupa HEX
+        if (text.match(/^[0-9A-Fa-f\s]+$/)) {
+            sendHexData(text, 'hex_tx');
+        } else {
+            // Kirim sebagai teks biasa
+            sendDataText(text);
+        }
         inputField.value = '';
     });
+
+    async function sendDataText(text) {
+        if (!isConnected || !characteristic) {
+            logTerminal('Belum terhubung ke BMS', 'error');
+            return;
+        }
+        try {
+            const encoder = new TextEncoder();
+            const dataToSend = encoder.encode(text + '\n');
+            await characteristic.writeValue(dataToSend);
+            logTerminal(text, 'tx');
+        } catch (error) {
+            logTerminal(`Gagal kirim: ${error.message}`, 'error');
+        }
+    }
 
     inputField.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -699,7 +720,8 @@
     logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
     logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
     logTerminal('📌 Data akan ditampilkan dalam format HEX', 'info');
-    logTerminal('📌 Kirim perintah dalam format HEX: 01 03 00 00', 'info');
+    logTerminal('📌 Tombol DevInfo: AA 55 90 EB 97 ... 11', 'info');
+    logTerminal('📌 Tombol BMSInfo: AA 55 90 EB 96 ... 10', 'info');
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
