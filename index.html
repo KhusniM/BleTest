@@ -628,12 +628,12 @@
     // 9.  FUNGSI KIRIM DATA KHUSUS
     // ============================================================
     async function sendDevInfo() {
-        const hexData = 'AA 55 90 EB 97 00 00 00 00 00 00 00 00 00 00 00 00 00 11';
+        const hexData = 'AA 55 90 EB 97 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11';
         await sendHexData(hexData, 'hex_dev');
     }
 
     async function sendBmsInfo() {
-        const hexData = 'AA 55 90 EB 96 00 00 00 00 00 00 00 00 00 00 00 00 00 10';
+        const hexData = 'AA 55 90 EB 96 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10';
         await sendHexData(hexData, 'hex_bms');
     }
 
