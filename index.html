@@ -150,13 +150,12 @@
         .terminal .hex-dev { color: #4fc3f7; font-weight: bold; }
         .terminal .hex-bms { color: #ffd54f; font-weight: bold; }
         .terminal .progress { color: #ffab40; }
-        .terminal .crc-ok { color: #69f0ae; }
-        .terminal .crc-err { color: #ff5252; }
         .terminal .packet-info { color: #b39ddb; }
         .terminal .ping { color: #78909c; }
         .terminal .data { color: #ffffff; }
         .terminal .header-info { color: #4dd0e1; }
         .terminal .raw-data { color: #ffcc80; font-size: 9px; word-break: break-all; }
+        .terminal .terminator { color: #ff6b6b; }
 
         .progress-container {
             width: 100%;
@@ -324,8 +323,9 @@
     <div class="terminal" id="terminalLog">
         <div><span class="time">[system]</span> <span class="info">▶ Siap menerima data BMS</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Data BMS: 3 packet (header + 2 data) total 300 bytes</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Ping 41 54 0D 0A akan diabaikan</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Deteksi Header: 55 AA EB 90</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Deteksi Terminator: 41 54 0D 0A</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Tanpa validasi CRC</span></div>
     </div>
 
     <div class="input-row">
@@ -371,33 +371,11 @@
     let isConnected = false;
 
     let bmsDataBuffer = [];
-    let packetCount = 0;
-    let expectedPackets = 3;
-    let dataTimer = null;
-    let packetSizes = [];
     let isCollecting = false;
+    let dataTimer = null;
 
     // ============================================================
-    // 3. CRC CALCULATION (CRC16/XMODEM)
-    // ============================================================
-    function calculateCRC16(data) {
-        let crc = 0x0000;
-        for (let i = 0; i < data.length; i++) {
-            crc ^= (data[i] << 8);
-            for (let j = 0; j < 8; j++) {
-                if (crc & 0x8000) {
-                    crc = (crc << 1) ^ 0x1021;
-                } else {
-                    crc = crc << 1;
-                }
-            }
-            crc &= 0xFFFF;
-        }
-        return crc;
-    }
-
-    // ============================================================
-    // 4. JK BMS PARSER
+    // 3. JK BMS PARSER
     // ============================================================
     class JKBMSParser {
         constructor() {
@@ -641,7 +619,7 @@
     }
 
     // ============================================================
-    // 5. FUNGSI LOG TERMINAL
+    // 4. FUNGSI LOG TERMINAL
     // ============================================================
     function logTerminal(message, type = 'info') {
         const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
@@ -657,12 +635,11 @@
             'error': `<span class="time">[${time}]</span> <span class="error">❌ ${message}</span>`,
             'warning': `<span class="time">[${time}]</span> <span class="warning">⚠️ ${message}</span>`,
             'progress': `<span class="time">[${time}]</span> <span class="progress">⏳ ${message}</span>`,
-            'crc-ok': `<span class="time">[${time}]</span> <span class="crc-ok">✅ ${message}</span>`,
-            'crc-err': `<span class="time">[${time}]</span> <span class="crc-err">❌ ${message}</span>`,
             'packet': `<span class="time">[${time}]</span> <span class="packet-info">📦 ${message}</span>`,
             'ping': `<span class="time">[${time}]</span> <span class="ping">📶 ${message}</span>`,
             'header': `<span class="time">[${time}]</span> <span class="header-info">🔰 ${message}</span>`,
             'raw': `<span class="time">[${time}]</span> <span class="raw-data">📄 ${message}</span>`,
+            'terminator': `<span class="time">[${time}]</span> <span class="terminator">⛔ ${message}</span>`,
             'data': `<span class="time">[${time}]</span> <span class="data">${message}</span>`,
         };
         
@@ -676,7 +653,7 @@
     }
 
     // ============================================================
-    // 6. KONVERSI DATA
+    // 5. KONVERSI DATA
     // ============================================================
     function toHexString(buffer) {
         const bytes = new Uint8Array(buffer);
@@ -713,7 +690,7 @@
     }
 
     // ============================================================
-    // 7. UPDATE UI BMS
+    // 6. UPDATE UI BMS
     // ============================================================
     function updateBmsUI(data) {
         if (data.voltage !== undefined && !isNaN(data.voltage) && data.voltage > 0) {
@@ -738,7 +715,7 @@
     }
 
     // ============================================================
-    // 8. UPDATE PROGRESS
+    // 7. UPDATE PROGRESS
     // ============================================================
     function updateProgress(percent) {
         progressContainer.classList.add('active');
@@ -752,11 +729,22 @@
     }
 
     // ============================================================
-    // 9. CEK APAKAH INI HEADER BMS
+    // 8. CEK APAKAH INI HEADER BMS
     // ============================================================
     function isBMSHeader(bytes) {
         if (bytes.length < 4) return false;
         return bytes[0] === 0x55 && bytes[1] === 0xAA && bytes[2] === 0xEB && bytes[3] === 0x90;
+    }
+
+    // ============================================================
+    // 9. CEK APAKAH INI TERMINATOR (41 54 0D 0A)
+    // ============================================================
+    function isTerminator(bytes) {
+        if (bytes.length < 4) return false;
+        // Cek 4 byte terakhir: 41 54 0D 0A
+        const len = bytes.length;
+        return bytes[len-4] === 0x41 && bytes[len-3] === 0x54 && 
+               bytes[len-2] === 0x0D && bytes[len-1] === 0x0A;
     }
 
     // ============================================================
@@ -787,48 +775,51 @@
             isCollecting = true;
             // Tambahkan header ke buffer
             bmsDataBuffer.push(...Array.from(bytes));
-            packetCount = 1;
-            packetSizes.push(dataLength);
-            logTerminal(`📦 Packet #1 (HEADER): ${dataLength} bytes`, 'packet');
-            updateProgress(33);
+            logTerminal(`📦 Mulai mengumpulkan data BMS...`, 'packet');
+            updateProgress(10);
             
-            // Set timer untuk menunggu packet berikutnya
+            // Set timer untuk timeout
             if (dataTimer) clearTimeout(dataTimer);
             dataTimer = setTimeout(() => {
-                processCompleteData();
-            }, 500);
+                logTerminal('⏰ Timeout: Tidak ada terminator yang diterima', 'warning');
+                resetCollector();
+            }, 3000);
             return;
         }
         
-        // Jika sedang mengumpulkan data dan ini bukan header
+        // Jika sedang mengumpulkan data
         if (isCollecting) {
             // Tambahkan ke buffer
             bmsDataBuffer.push(...Array.from(bytes));
-            packetCount++;
-            packetSizes.push(dataLength);
-            
-            // Log packet
-            logTerminal(`📦 Packet #${packetCount}: ${dataLength} bytes`, 'packet');
             
             // Update progress
-            const progress = Math.min((packetCount / expectedPackets) * 100, 100);
+            const progress = Math.min((bmsDataBuffer.length / 304) * 100, 90);
             updateProgress(progress);
+            
+            // CEK: APAKAH SUDAH MENERIMA TERMINATOR?
+            if (isTerminator(bmsDataBuffer)) {
+                logTerminal(`⛔ TERMINATOR DETEKSI: 41 54 0D 0A`, 'terminator');
+                // Hapus terminator dari buffer
+                const dataWithoutTerminator = bmsDataBuffer.slice(0, bmsDataBuffer.length - 4);
+                const terminatorBytes = bmsDataBuffer.slice(bmsDataBuffer.length - 4);
+                
+                logTerminal(`📝 Data BMS length: ${dataWithoutTerminator.length} bytes (terminator removed)`, 'info');
+                logTerminal(`📝 Terminator: ${arrayToHexString(Array.from(terminatorBytes))}`, 'terminator');
+                
+                // Proses data
+                processBMSData(dataWithoutTerminator);
+                resetCollector();
+                return;
+            }
             
             // Reset timer
             if (dataTimer) {
                 clearTimeout(dataTimer);
             }
-            
-            // Jika sudah 3 packet, proses segera
-            if (packetCount >= expectedPackets) {
-                processCompleteData();
-                return;
-            }
-            
-            // Set timer untuk menunggu packet berikutnya
             dataTimer = setTimeout(() => {
-                processCompleteData();
-            }, 500);
+                logTerminal('⏰ Timeout: Tidak ada terminator yang diterima', 'warning');
+                resetCollector();
+            }, 2000);
         } else {
             // Data bukan header dan tidak dalam mode koleksi - abaikan
             logTerminal(`⚠️ Data tidak dikenali: ${dataLength} bytes (bukan header BMS)`, 'warning');
@@ -836,130 +827,55 @@
     }
 
     // ============================================================
-    // 11. PROSES DATA SETELAH SEMUA PAKET TERKUMPUL
+    // 11. PROSES DATA BMS (TANPA CRC)
     // ============================================================
-    function processCompleteData() {
-        if (bmsDataBuffer.length === 0) {
+    function processBMSData(data) {
+        if (data.length === 0) {
             logTerminal('⚠️ Tidak ada data BMS untuk diproses', 'warning');
-            resetCollector();
             return;
         }
 
-        const totalBytes = bmsDataBuffer.length;
-        const packetInfo = packetSizes.join(' + ');
+        const totalBytes = data.length;
+        logTerminal(`📊 Total data BMS: ${totalBytes} bytes`, 'progress');
         
-        logTerminal(`📊 Total data diterima: ${totalBytes} bytes (${packetInfo})`, 'progress');
-        
-        // TAMPILKAN FULL DATA
-        const fullHex = arrayToHexString(bmsDataBuffer);
-        logTerminal(`FULL DATA (${totalBytes} bytes): ${fullHex}`, 'raw');
-
-        // ========== DETEKSI PING/TERMINATOR (41 54 0D 0A) ==========
-        const len = bmsDataBuffer.length;
-        let dataToParse = bmsDataBuffer;
-        let dataLength = totalBytes;
-        let pingDetected = false;
-        
-        // Cek 4 byte terakhir: 41 54 0D 0A ("AT\r\n")
-        if (len >= 4) {
-            const last4 = bmsDataBuffer.slice(len - 4);
-            if (last4[0] === 0x41 && last4[1] === 0x54 && 
-                last4[2] === 0x0D && last4[3] === 0x0A) {
-                pingDetected = true;
-                logTerminal(`📶 Ping/terminator detected: 41 54 0D 0A ("AT\\r\\n") - DIABAIKAN`, 'ping');
-                // Hapus 4 byte ping
-                dataToParse = bmsDataBuffer.slice(0, len - 4);
-                dataLength = dataToParse.length;
-                logTerminal(`📝 Data BMS length: ${dataLength} bytes (removed 4 bytes ping)`, 'info');
-            }
-        }
-        
-        // Jika tidak ada ping, cek CRLF biasa (0D 0A)
-        if (!pingDetected && len >= 2) {
-            const last2 = bmsDataBuffer.slice(len - 2);
-            if (last2[0] === 0x0D && last2[1] === 0x0A) {
-                logTerminal(`📝 CRLF terminator detected: 0D 0A - DIABAIKAN`, 'info');
-                dataToParse = bmsDataBuffer.slice(0, len - 2);
-                dataLength = dataToParse.length;
-                logTerminal(`📝 Data BMS length: ${dataLength} bytes (removed 2 bytes CRLF)`, 'info');
-            }
-        }
-        
-        // TAMPILKAN DATA BMS TANPA PING
-        const bmsHex = arrayToHexString(dataToParse);
-        logTerminal(`📄 BMS DATA (${dataLength} bytes): ${bmsHex.substring(0, 200)}${bmsHex.length > 200 ? ' ...' : ''}`, 'raw');
+        // TAMPILKAN DATA BMS
+        const bmsHex = arrayToHexString(data);
+        logTerminal(`📄 BMS DATA (${totalBytes} bytes): ${bmsHex.substring(0, 200)}${bmsHex.length > 200 ? ' ...' : ''}`, 'raw');
 
         // CEK HEADER BMS
-        if (dataToParse.length < 6 || 
-            dataToParse[0] !== 0x55 || dataToParse[1] !== 0xAA || 
-            dataToParse[2] !== 0xEB || dataToParse[3] !== 0x90) {
+        if (data.length < 6 || 
+            data[0] !== 0x55 || data[1] !== 0xAA || 
+            data[2] !== 0xEB || data[3] !== 0x90) {
             logTerminal('⚠️ Invalid BMS header! Data mungkin korup.', 'error');
-            resetCollector();
             return;
         }
         
         logTerminal(`🔰 BMS Header valid: 55 AA EB 90`, 'header');
 
-        // CEK CRC (byte terakhir dari dataToParse)
+        // PARSE DATA BMS
         try {
-            const receivedCRC = dataToParse[dataToParse.length - 1];
-            const dataWithoutCRC = dataToParse.slice(0, dataToParse.length - 1);
-            const calculatedCRC = calculateCRC16(dataWithoutCRC) & 0xFF;
+            const parser = new JKBMSParser();
+            const result = parser.parse(data);
             
-            logTerminal(`🔍 CRC: Received=0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()}, Calculated=0x${calculatedCRC.toString(16).padStart(2, '0').toUpperCase()}`, 'info');
-            
-            if (receivedCRC === calculatedCRC) {
-                logTerminal(`✅ CRC: 0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()} ✓`, 'crc-ok');
-                
-                // Parse data dengan JK BMS Parser
-                try {
-                    const parser = new JKBMSParser();
-                    const result = parser.parse(dataWithoutCRC);
-                    
-                    if (result) {
-                        // Update UI
-                        updateBmsUI({
-                            voltage: result.status.totalVoltage,
-                            current: result.status.current,
-                            soc: result.status.soc,
-                            temperature: result.temperatures[0]?.temp || 0
-                        });
+            if (result) {
+                // Update UI
+                updateBmsUI({
+                    voltage: result.status.totalVoltage,
+                    current: result.status.current,
+                    soc: result.status.soc,
+                    temperature: result.temperatures[0]?.temp || 0
+                });
 
-                        // Tampilkan hasil parsing
-                        const outputLines = parser.formatOutput(result);
-                        for (const line of outputLines) {
-                            logTerminal(line, 'data');
-                        }
-                        logTerminal(`✅ Parsing berhasil (${result.header.totalCells} cells, ${result.header.dataLength} bytes)`, 'success');
-                    }
-                } catch (parseError) {
-                    logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error');
+                // Tampilkan hasil parsing
+                const outputLines = parser.formatOutput(result);
+                for (const line of outputLines) {
+                    logTerminal(line, 'data');
                 }
-            } else {
-                logTerminal(`❌ CRC Mismatch! Recv: 0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()}, Calc: 0x${calculatedCRC.toString(16).padStart(2, '0').toUpperCase()}`, 'crc-err');
-                
-                // Coba parse tanpa CRC untuk debugging
-                try {
-                    const parser = new JKBMSParser();
-                    const result = parser.parse(dataToParse);
-                    if (result) {
-                        logTerminal('⚠️ Data diparse tanpa validasi CRC (debug)', 'warning');
-                        updateBmsUI({
-                            voltage: result.status.totalVoltage,
-                            current: result.status.current,
-                            soc: result.status.soc,
-                            temperature: result.temperatures[0]?.temp || 0
-                        });
-                    }
-                } catch (e) {
-                    logTerminal(`⚠️ Parse tanpa CRC gagal: ${e.message}`, 'error');
-                }
+                logTerminal(`✅ Parsing berhasil (${result.header.totalCells} cells, ${result.header.dataLength} bytes)`, 'success');
             }
-        } catch (crcError) {
-            logTerminal(`⚠️ CRC error: ${crcError.message}`, 'error');
+        } catch (parseError) {
+            logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error');
         }
-        
-        resetCollector();
     }
 
     // ============================================================
@@ -967,8 +883,6 @@
     // ============================================================
     function resetCollector() {
         bmsDataBuffer = [];
-        packetCount = 0;
-        packetSizes = [];
         isCollecting = false;
         if (dataTimer) {
             clearTimeout(dataTimer);
@@ -1019,9 +933,9 @@
                     handleBmsData(value.buffer);
                 });
                 logTerminal('📡 Notifikasi diaktifkan', 'info');
-                logTerminal('📦 Menunggu header BMS (55 AA EB 90) di packet pertama', 'info');
-                logTerminal('📄 RAW data per packet akan ditampilkan', 'info');
-                logTerminal('📶 Ping 41 54 0D 0A akan diabaikan', 'info');
+                logTerminal('📦 Menunggu header BMS (55 AA EB 90)', 'info');
+                logTerminal('📶 Terminator: 41 54 0D 0A', 'info');
+                logTerminal('📄 Tanpa validasi CRC', 'info');
             } else {
                 logTerminal('⚠️ Karakteristik tidak support notifikasi', 'warning');
             }
@@ -1155,8 +1069,9 @@
     logTerminal('🚀 Web BMS Terminal siap', 'info');
     logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
     logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
-    logTerminal('📦 Data BMS: 3 packet (header + 2 data) total 300 bytes', 'info');
-    logTerminal('📶 Ping 41 54 0D 0A akan diabaikan', 'info');
+    logTerminal('📦 Deteksi Header: 55 AA EB 90', 'info');
+    logTerminal('📶 Deteksi Terminator: 41 54 0D 0A', 'info');
+    logTerminal('📄 Tanpa validasi CRC', 'info');
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
