@@ -162,6 +162,12 @@
         .terminal .error {
             color: #ff6b7a;
         }
+        .terminal .warning {
+            color: #ffd93d;
+        }
+        .terminal .success {
+            color: #6fcf97;
+        }
 
         /* ========== INPUT + TOMBOL ========== */
         .input-row {
@@ -242,6 +248,15 @@
             gap: 10px;
         }
 
+        .btn-success {
+            background: rgba(0, 255, 136, 0.12);
+            color: #00ff88;
+            border: 1px solid rgba(0, 255, 136, 0.15);
+        }
+        .btn-success:hover {
+            background: rgba(0, 255, 136, 0.2);
+        }
+
         /* ========== RESPONSIVE ========== */
         @media (max-width: 420px) {
             .container { padding: 18px 14px 24px; }
@@ -301,6 +316,7 @@
 
     <div class="btn-group">
         <button class="btn btn-secondary" id="scanBtn">🔍 Cari BMS</button>
+        <button class="btn btn-success" id="testBtn">🧪 Test Data</button>
         <button class="btn btn-danger" id="disconnectBtn">⛔ Putus</button>
     </div>
 
@@ -314,6 +330,7 @@
     const inputField = document.getElementById('inputField');
     const sendBtn = document.getElementById('sendBtn');
     const scanBtn = document.getElementById('scanBtn');
+    const testBtn = document.getElementById('testBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const ledIndicator = document.getElementById('ledIndicator');
     const statusText = document.getElementById('statusText');
@@ -329,7 +346,7 @@
     // ============================================================
     let device = null;
     let server = null;
-    let characteristic = null;    // karakteristik untuk TX/RX
+    let characteristic = null;
     let isConnected = false;
 
     // ============================================================
@@ -341,7 +358,6 @@
         entry.innerHTML = `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
         terminalLog.appendChild(entry);
         terminalLog.scrollTop = terminalLog.scrollHeight;
-        // batasi jumlah baris agar tidak overload
         if (terminalLog.children.length > 120) {
             terminalLog.removeChild(terminalLog.children[0]);
         }
@@ -351,11 +367,18 @@
     // 4.  UPDATE UI BMS
     // ============================================================
     function updateBmsUI(data) {
-        // data = { voltage, current, soc, temperature }
-        if (data.voltage !== undefined) bmsVoltage.textContent = data.voltage.toFixed(2);
-        if (data.current !== undefined) bmsCurrent.textContent = data.current.toFixed(2);
-        if (data.soc !== undefined) bmsSoc.textContent = data.soc.toFixed(1);
-        if (data.temperature !== undefined) bmsTemp.textContent = data.temperature.toFixed(1);
+        if (data.voltage !== undefined && !isNaN(data.voltage)) {
+            bmsVoltage.textContent = data.voltage.toFixed(2);
+        }
+        if (data.current !== undefined && !isNaN(data.current)) {
+            bmsCurrent.textContent = data.current.toFixed(2);
+        }
+        if (data.soc !== undefined && !isNaN(data.soc)) {
+            bmsSoc.textContent = data.soc.toFixed(1);
+        }
+        if (data.temperature !== undefined && !isNaN(data.temperature)) {
+            bmsTemp.textContent = data.temperature.toFixed(1);
+        }
     }
 
     function resetBmsUI() {
@@ -366,41 +389,105 @@
     }
 
     // ============================================================
-    // 5.  PARSING DATA BMS (CONTOH FORMAT)
+    // 5.  PARSING DATA BMS (DIPERBAIKI)
     // ============================================================
     function parseBmsData(raw) {
-        // Contoh format: "V:24.50,A:1.23,S:78.5,T:32.1"
-        // atau bisa juga binary / JSON, sesuaikan dengan BMS-mu
         try {
-            // coba parse sebagai JSON dulu
-            if (raw.trim().startsWith('{')) {
-                const json = JSON.parse(raw);
-                return {
-                    voltage: json.voltage || json.V || json.volt,
-                    current: json.current || json.I || json.amp,
-                    soc: json.soc || json.SOC || json.battery,
-                    temperature: json.temperature || json.T || json.temp
-                };
+            // Bersihkan data dari karakter aneh
+            let cleanData = raw.trim();
+            
+            // Log data mentah untuk debugging
+            logTerminal(`📝 Data mentah: "${cleanData}"`, 'warning');
+
+            // ===== FORMAT 1: JSON =====
+            if (cleanData.startsWith('{')) {
+                try {
+                    const json = JSON.parse(cleanData);
+                    const result = {
+                        voltage: parseFloat(json.voltage || json.V || json.volt || json.Voltage || json.Volt),
+                        current: parseFloat(json.current || json.I || json.amp || json.Current || json.A),
+                        soc: parseFloat(json.soc || json.SOC || json.battery || json.Battery || json.SOC_Percent),
+                        temperature: parseFloat(json.temperature || json.T || json.temp || json.Temperature || json.Temp)
+                    };
+                    
+                    // Cek apakah ada data yang valid
+                    if (Object.values(result).some(v => !isNaN(v))) {
+                        return result;
+                    }
+                } catch (e) {}
             }
 
-            // fallback: parse key:value
+            // ===== FORMAT 2: Key:Value pairs (V:24.50,A:1.23,S:78.5,T:32.1) =====
             const obj = {};
-            const pairs = raw.split(',').map(s => s.trim());
+            const pairs = cleanData.split(/[,;]\s*/);
             for (const pair of pairs) {
-                const [key, val] = pair.split(':').map(s => s.trim());
-                if (key && val !== undefined) {
-                    const num = parseFloat(val);
-                    obj[key.toLowerCase()] = isNaN(num) ? val : num;
+                const match = pair.match(/([A-Za-z_]+)\s*[:=]\s*([\d.]+)/);
+                if (match) {
+                    const key = match[1].toLowerCase();
+                    const value = parseFloat(match[2]);
+                    if (!isNaN(value)) {
+                        if (['v', 'volt', 'voltage'].includes(key)) obj.voltage = value;
+                        else if (['a', 'i', 'amp', 'current'].includes(key)) obj.current = value;
+                        else if (['soc', 's', 'battery', 'bat'].includes(key)) obj.soc = value;
+                        else if (['t', 'temp', 'temperature'].includes(key)) obj.temperature = value;
+                    }
                 }
             }
 
-            return {
-                voltage: obj.v || obj.volt || obj.voltage,
-                current: obj.a || obj.i || obj.amp || obj.current,
-                soc: obj.soc || obj.s || obj.battery,
-                temperature: obj.t || obj.temp || obj.temperature
-            };
+            if (Object.keys(obj).length > 0) {
+                return obj;
+            }
+
+            // ===== FORMAT 3: Modbus/Hex format =====
+            // Contoh: 01 03 02 0C 8A 79 03 
+            const hexValues = cleanData.match(/\b[0-9A-Fa-f]{2}\b/g);
+            if (hexValues && hexValues.length >= 6) {
+                try {
+                    const bytes = hexValues.map(h => parseInt(h, 16));
+                    // Coba parse sebagai data BMS sederhana
+                    // Format umum: [address][function][length][data...][checksum]
+                    if (bytes.length >= 8) {
+                        // Ini hanya contoh parsing - sesuaikan dengan protocol BMS Anda
+                        const voltage = ((bytes[3] << 8) + bytes[4]) / 100; // Contoh
+                        const current = ((bytes[5] << 8) + bytes[6]) / 100;
+                        const soc = bytes[7] / 1.0;
+                        
+                        if (voltage > 0 && voltage < 100) {
+                            return { voltage, current, soc };
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // ===== FORMAT 4: Angka-angka terpisah =====
+            const numbers = cleanData.match(/[\d.]+/g);
+            if (numbers && numbers.length >= 3) {
+                const vals = numbers.map(Number).filter(n => !isNaN(n));
+                if (vals.length >= 3) {
+                    // Tebak: voltage, current, soc
+                    // Cek apakah nilai masuk akal
+                    if (vals[0] > 0 && vals[0] < 100 && vals[1] < 50 && vals[2] <= 100) {
+                        return {
+                            voltage: vals[0],
+                            current: vals[1],
+                            soc: vals[2]
+                        };
+                    }
+                    if (vals[0] > 10 && vals[0] < 100) {
+                        return {
+                            voltage: vals[0],
+                            current: vals[1] || 0,
+                            soc: vals[2] || 0
+                        };
+                    }
+                }
+            }
+
+            // Jika tidak ada format yang cocok
+            return null;
+
         } catch (e) {
+            logTerminal(`❌ Error parsing: ${e.message}`, 'error');
             return null;
         }
     }
@@ -413,16 +500,30 @@
 
         const parsed = parseBmsData(rawString);
         if (parsed) {
-            // cek apakah ada nilai yang valid
+            // Cek apakah ada nilai yang valid
             const hasValid = Object.values(parsed).some(v => typeof v === 'number' && !isNaN(v));
             if (hasValid) {
                 updateBmsUI(parsed);
-                logTerminal('✅ Data BMS berhasil di-parse', 'info');
+                logTerminal('✅ Data BMS berhasil di-parse', 'success');
+                
+                // Log data yang berhasil di-parse
+                const logMsg = Object.entries(parsed)
+                    .filter(([_, v]) => !isNaN(v))
+                    .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
+                    .join(', ');
+                logTerminal(`📊 ${logMsg}`, 'info');
             } else {
-                logTerminal('⚠️ Data diterima tapi tidak dikenali sebagai BMS', 'error');
+                logTerminal('⚠️ Tidak ada nilai valid dalam data', 'warning');
             }
         } else {
-            logTerminal('⚠️ Gagal parse data BMS', 'error');
+            logTerminal('⚠️ Format data tidak dikenali', 'error');
+            // Tampilkan sample data untuk debugging
+            if (rawString.length > 0) {
+                const hex = Array.from(new TextEncoder().encode(rawString))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join(' ');
+                logTerminal(`🔢 Hex: ${hex}`, 'warning');
+            }
         }
     }
 
@@ -433,20 +534,18 @@
         try {
             logTerminal('🔍 Mencari perangkat BMS...', 'info');
 
-            // Perbaikan: Gunakan filters ATAU acceptAllDevices, tidak keduanya
             device = await navigator.bluetooth.requestDevice({
                 filters: [
                     { services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }
                 ]
             });
 
-            logTerminal(`✅ Terhubung ke: ${device.name || 'Tanpa Nama'}`, 'info');
+            logTerminal(`✅ Terhubung ke: ${device.name || 'Tanpa Nama'}`, 'success');
 
             server = await device.gatt.connect();
             isConnected = true;
             updateStatus(true);
 
-            // Coba dapatkan service dan characteristic
             const serviceUUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
             const charUUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
 
@@ -454,7 +553,6 @@
             try {
                 service = await server.getPrimaryService(serviceUUID);
             } catch (_) {
-                // coba cari service pertama yang tersedia
                 const services = await server.getPrimaryServices();
                 if (services.length === 0) throw new Error('Tidak ada service');
                 service = services[0];
@@ -462,9 +560,8 @@
             }
 
             characteristic = await service.getCharacteristic(charUUID);
-            logTerminal('✅ Karakteristik ditemukan, siap kirim/terima', 'info');
+            logTerminal('✅ Karakteristik ditemukan, siap kirim/terima', 'success');
 
-            // Subscribe notifikasi
             if (characteristic.properties.notify) {
                 await characteristic.startNotifications();
                 characteristic.addEventListener('characteristicvaluechanged', (event) => {
@@ -475,10 +572,9 @@
                 });
                 logTerminal('📡 Notifikasi diaktifkan (data masuk realtime)', 'info');
             } else {
-                logTerminal('⚠️ Karakteristik tidak support notifikasi, polling diperlukan', 'error');
+                logTerminal('⚠️ Karakteristik tidak support notifikasi', 'warning');
             }
 
-            // Baca data awal (opsional)
             try {
                 const value = await characteristic.readValue();
                 const decoder = new TextDecoder('utf-8');
@@ -504,7 +600,7 @@
 
         try {
             const encoder = new TextEncoder();
-            const data = encoder.encode(text + '\n'); // tambah newline jika diperlukan
+            const data = encoder.encode(text + '\n');
             await characteristic.writeValue(data);
             logTerminal(`📤 ${text}`, 'tx');
         } catch (error) {
@@ -542,9 +638,27 @@
     }
 
     // ============================================================
-    // 11. EVENT LISTENER
+    // 11. TEST DATA (UNTUK DEBUGGING)
+    // ============================================================
+    function testData() {
+        const testFormats = [
+            '{"voltage":24.50,"current":1.23,"soc":78.5,"temperature":32.1}',
+            'V:24.50,A:1.23,S:78.5,T:32.1',
+            'Voltage=24.50;Current=1.23;SOC=78.5;Temp=32.1',
+            '24.50,1.23,78.5,32.1',
+            '01 03 02 0C 8A 79 03 7B'
+        ];
+        
+        const random = testFormats[Math.floor(Math.random() * testFormats.length)];
+        logTerminal(`🧪 Test data: ${random}`, 'warning');
+        handleBmsData(random);
+    }
+
+    // ============================================================
+    // 12. EVENT LISTENER
     // ============================================================
     scanBtn.addEventListener('click', connectBle);
+    testBtn.addEventListener('click', testData);
 
     sendBtn.addEventListener('click', () => {
         const text = inputField.value.trim();
@@ -566,13 +680,13 @@
     disconnectBtn.addEventListener('click', disconnect);
 
     // ============================================================
-    // 12. INISIALISASI
+    // 13. INISIALISASI
     // ============================================================
     logTerminal('🚀 Web BMS Terminal siap', 'info');
     logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
     logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
+    logTerminal('📌 Klik "Test Data" untuk mencoba parsing', 'info');
 
-    // Cek dukungan Web Bluetooth
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
         logTerminal('ℹ️ Gunakan Chrome di Android / Desktop', 'error');
