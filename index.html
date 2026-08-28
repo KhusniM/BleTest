@@ -116,13 +116,13 @@
             background: rgba(0, 10, 20, 0.7);
             border-radius: 20px;
             padding: 16px;
-            height: 170px;
+            height: 200px;
             overflow-y: auto;
             margin-bottom: 20px;
             border: 1px solid rgba(0, 255, 255, 0.06);
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 11px;
-            line-height: 1.6;
+            font-size: 10px;
+            line-height: 1.5;
             color: #8bb4d8;
             scroll-behavior: smooth;
         }
@@ -140,7 +140,7 @@
 
         .terminal .time {
             color: #3a6a8a;
-            margin-right: 6px;
+            margin-right: 4px;
         }
         .terminal .info { color: #a0b8d0; }
         .terminal .error { color: #ff6b7a; }
@@ -156,6 +156,7 @@
         .terminal .ping { color: #78909c; }
         .terminal .data { color: #ffffff; }
         .terminal .header-info { color: #4dd0e1; }
+        .terminal .raw-data { color: #ffcc80; font-size: 9px; word-break: break-all; }
 
         .progress-container {
             width: 100%;
@@ -323,8 +324,7 @@
     <div class="terminal" id="terminalLog">
         <div><span class="time">[system]</span> <span class="info">▶ Siap menerima data BMS</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Data BMS: 3 packet (128+128+48 bytes)</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Packet pertama adalah header BMS</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Data RAW per packet akan ditampilkan</span></div>
     </div>
 
     <div class="input-row">
@@ -369,17 +369,16 @@
     let characteristic = null;
     let isConnected = false;
 
-    // Buffer untuk data BMS
     let bmsDataBuffer = [];
     let packetCount = 0;
     let expectedPackets = 3;
     let dataTimer = null;
     let packetSizes = [];
     let isCollecting = false;
-    let lastPacketTime = 0;
+    let rawDataLogs = [];
 
     // ============================================================
-    // 3. CRC CALCULATION (CRC16/XMODEM)
+    // 3. CRC CALCULATION
     // ============================================================
     function calculateCRC16(data) {
         let crc = 0x0000;
@@ -663,6 +662,7 @@
             'packet': `<span class="time">[${time}]</span> <span class="packet-info">📦 ${message}</span>`,
             'ping': `<span class="time">[${time}]</span> <span class="ping">📶 ${message}</span>`,
             'header': `<span class="time">[${time}]</span> <span class="header-info">🔰 ${message}</span>`,
+            'raw': `<span class="time">[${time}]</span> <span class="raw-data">📄 ${message}</span>`,
             'data': `<span class="time">[${time}]</span> <span class="data">${message}</span>`,
         };
         
@@ -670,7 +670,7 @@
         
         terminalLog.appendChild(entry);
         terminalLog.scrollTop = terminalLog.scrollHeight;
-        if (terminalLog.children.length > 200) {
+        if (terminalLog.children.length > 500) {
             terminalLog.removeChild(terminalLog.children[0]);
         }
     }
@@ -680,6 +680,15 @@
     // ============================================================
     function toHexString(buffer) {
         const bytes = new Uint8Array(buffer);
+        let hex = '';
+        for (let i = 0; i < bytes.length; i++) {
+            hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
+            if (i < bytes.length - 1) hex += ' ';
+        }
+        return hex;
+    }
+
+    function arrayToHexString(bytes) {
         let hex = '';
         for (let i = 0; i < bytes.length; i++) {
             hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
@@ -747,7 +756,6 @@
     // ============================================================
     function isBMSHeader(bytes) {
         if (bytes.length < 4) return false;
-        // Header BMS selalu dimulai dengan 55 AA EB 90
         return bytes[0] === 0x55 && bytes[1] === 0xAA && bytes[2] === 0xEB && bytes[3] === 0x90;
     }
 
@@ -758,6 +766,9 @@
         const bytes = new Uint8Array(buffer);
         const dataLength = bytes.length;
         const hexStr = toHexString(buffer);
+        
+        // TAMPILKAN RAW DATA LENGKAP PER PACKET
+        logTerminal(`RAW DATA (${dataLength} bytes): ${hexStr}`, 'raw');
         
         // CEK: APAKAH INI PACKET PING? (4 bytes tanpa header BMS)
         if (dataLength === 4 && !isBMSHeader(Array.from(bytes))) {
@@ -770,7 +781,7 @@
         
         // Jika ini header, reset buffer dan mulai koleksi baru
         if (isHeader) {
-            logTerminal(`🔰 HEADER BMS: ${dataLength} bytes | ${getHeaderHex(Array.from(bytes))}`, 'header');
+            logTerminal(`🔰 HEADER BMS DETEKSI: ${dataLength} bytes`, 'header');
             // Reset buffer untuk data baru
             resetCollector();
             isCollecting = true;
@@ -838,12 +849,18 @@
         const packetInfo = packetSizes.join(' + ');
         
         logTerminal(`📊 Total data BMS: ${totalBytes} bytes (${packetInfo})`, 'progress');
+        
+        // TAMPILKAN FULL DATA YANG TERKUMPUL
+        const fullHex = arrayToHexString(bmsDataBuffer);
+        logTerminal(`FULL DATA (${totalBytes} bytes): ${fullHex}`, 'raw');
 
         // Cek CRC (byte terakhir)
         try {
             const receivedCRC = bmsDataBuffer[bmsDataBuffer.length - 1];
             const dataWithoutCRC = bmsDataBuffer.slice(0, bmsDataBuffer.length - 1);
             const calculatedCRC = calculateCRC16(dataWithoutCRC) & 0xFF;
+            
+            logTerminal(`🔍 CRC: Received=0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()}, Calculated=0x${calculatedCRC.toString(16).padStart(2, '0').toUpperCase()}`, 'info');
             
             if (receivedCRC === calculatedCRC) {
                 logTerminal(`CRC: 0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()} ✓`, 'crc-ok');
@@ -958,6 +975,7 @@
                 });
                 logTerminal('📡 Notifikasi diaktifkan', 'info');
                 logTerminal('📦 Menunggu header BMS (55 AA EB 90) di packet pertama', 'info');
+                logTerminal('📄 RAW data per packet akan ditampilkan', 'info');
             } else {
                 logTerminal('⚠️ Karakteristik tidak support notifikasi', 'warning');
             }
@@ -1092,7 +1110,7 @@
     logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
     logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
     logTerminal('📦 Data BMS: 3 packet (header + 2 data)', 'info');
-    logTerminal('🔰 Header BMS: 55 AA EB 90 di packet pertama', 'info');
+    logTerminal('📄 RAW data per packet akan ditampilkan lengkap', 'info');
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
