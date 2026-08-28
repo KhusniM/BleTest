@@ -171,9 +171,7 @@
         .terminal .hex {
             color: #bb86fc;
             font-weight: bold;
-        }
-        .terminal .ascii {
-            color: #4fc3f7;
+            letter-spacing: 0.5px;
         }
 
         /* ========== INPUT + TOMBOL ========== */
@@ -194,6 +192,7 @@
             font-size: 15px;
             outline: none;
             transition: 0.3s;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
         }
 
         .input-row input::placeholder {
@@ -327,7 +326,7 @@
 
     <!-- INPUT + TOMBOL -->
     <div class="input-row">
-        <input type="text" id="inputField" placeholder="Kirim perintah (HEX: 01 03 00 00)" />
+        <input type="text" id="inputField" placeholder="Kirim HEX: 01 03 00 00" />
         <button class="btn btn-primary" id="sendBtn">🚀 Kirim</button>
     </div>
 
@@ -367,17 +366,24 @@
     let isConnected = false;
 
     // ============================================================
-    // 3.  FUNGSI LOG TERMINAL - KHUSUS HEX
+    // 3.  FUNGSI LOG TERMINAL - HANYA HEX
     // ============================================================
-    function logTerminal(message, type = 'info', showHex = false) {
+    function logTerminal(message, type = 'info') {
         const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
         const entry = document.createElement('div');
         
-        if (showHex) {
-            // Tampilkan data dalam format HEX yang rapi
-            entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex">📥 HEX: ${message}</span>`;
+        if (type === 'hex_rx') {
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex">📥 ${message}</span>`;
+        } else if (type === 'hex_tx') {
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`;
         } else if (type === 'tx') {
             entry.innerHTML = `<span class="time">[${time}]</span> <span class="tx">📤 ${message}</span>`;
+        } else if (type === 'success') {
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="success">✅ ${message}</span>`;
+        } else if (type === 'error') {
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="error">❌ ${message}</span>`;
+        } else if (type === 'warning') {
+            entry.innerHTML = `<span class="time">[${time}]</span> <span class="warning">⚠️ ${message}</span>`;
         } else {
             entry.innerHTML = `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
         }
@@ -402,16 +408,6 @@
         return hex;
     }
 
-    function toAsciiString(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let ascii = '';
-        for (let i = 0; i < bytes.length; i++) {
-            const char = String.fromCharCode(bytes[i]);
-            ascii += (bytes[i] >= 32 && bytes[i] <= 126) ? char : '.';
-        }
-        return ascii;
-    }
-
     // ============================================================
     // 5.  UPDATE UI BMS (DARI HEX DATA)
     // ============================================================
@@ -424,23 +420,23 @@
                 bytes.push(parseInt(cleanHex.substr(i, 2), 16));
             }
 
-            // Jika data cukup panjang, coba parse
-            if (bytes.length >= 8) {
-                // Contoh parsing untuk data BMS dengan format tertentu
-                // Sesuaikan dengan protocol BMS Anda
-                const voltage = ((bytes[3] << 8) + bytes[4]) / 100;
-                const current = ((bytes[5] << 8) + bytes[6]) / 100;
-                const soc = bytes[7] / 1.0;
-                const temperature = bytes[8] / 1.0;
-
-                // Validasi nilai masuk akal
-                if (voltage > 0 && voltage < 100) {
-                    return { voltage, current, soc, temperature };
-                }
-            }
-
             // Coba parse sebagai ASCII
             const ascii = String.fromCharCode(...bytes);
+            
+            // Coba parse JSON
+            if (ascii.trim().startsWith('{')) {
+                try {
+                    const json = JSON.parse(ascii);
+                    return {
+                        voltage: parseFloat(json.voltage || json.V || json.volt),
+                        current: parseFloat(json.current || json.I || json.amp),
+                        soc: parseFloat(json.soc || json.SOC || json.battery),
+                        temperature: parseFloat(json.temperature || json.T || json.temp)
+                    };
+                } catch (e) {}
+            }
+
+            // Coba parse key:value
             const numbers = ascii.match(/[\d.]+/g);
             if (numbers && numbers.length >= 3) {
                 const vals = numbers.map(Number);
@@ -454,6 +450,18 @@
                 }
             }
 
+            // Parse dari bytes langsung (format binary)
+            if (bytes.length >= 8) {
+                const voltage = ((bytes[3] << 8) + bytes[4]) / 100;
+                const current = ((bytes[5] << 8) + bytes[6]) / 100;
+                const soc = bytes[7] / 1.0;
+                const temperature = bytes[8] / 1.0;
+
+                if (voltage > 0 && voltage < 100) {
+                    return { voltage, current, soc, temperature };
+                }
+            }
+
             return null;
         } catch (e) {
             return null;
@@ -461,13 +469,13 @@
     }
 
     function updateBmsUI(data) {
-        if (data.voltage !== undefined && !isNaN(data.voltage)) {
+        if (data.voltage !== undefined && !isNaN(data.voltage) && data.voltage > 0) {
             bmsVoltage.textContent = data.voltage.toFixed(2);
         }
         if (data.current !== undefined && !isNaN(data.current)) {
             bmsCurrent.textContent = data.current.toFixed(2);
         }
-        if (data.soc !== undefined && !isNaN(data.soc)) {
+        if (data.soc !== undefined && !isNaN(data.soc) && data.soc >= 0 && data.soc <= 100) {
             bmsSoc.textContent = data.soc.toFixed(1);
         }
         if (data.temperature !== undefined && !isNaN(data.temperature)) {
@@ -488,19 +496,9 @@
     function handleBmsData(buffer) {
         // Konversi ke HEX
         const hexString = toHexString(buffer);
-        const asciiString = toAsciiString(buffer);
         
-        // Tampilkan di terminal dalam format HEX
-        logTerminal(hexString, 'hex', true);
-        
-        // Tampilkan ASCII juga (opsional)
-        if (asciiString.trim().length > 0) {
-            const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
-            const entry = document.createElement('div');
-            entry.innerHTML = `<span class="time">[${time}]</span> <span class="ascii">📝 ASCII: ${asciiString}</span>`;
-            terminalLog.appendChild(entry);
-            terminalLog.scrollTop = terminalLog.scrollHeight;
-        }
+        // Tampilkan di terminal dalam format HEX (hanya HEX)
+        logTerminal(hexString, 'hex_rx');
 
         // Coba parsing dari HEX
         const parsed = parseHexToBMS(hexString);
@@ -508,15 +506,11 @@
             const hasValid = Object.values(parsed).some(v => typeof v === 'number' && !isNaN(v) && v > 0);
             if (hasValid) {
                 updateBmsUI(parsed);
-                const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
-                const entry = document.createElement('div');
                 const logMsg = Object.entries(parsed)
                     .filter(([_, v]) => !isNaN(v) && v > 0)
                     .map(([k, v]) => `${k}: ${v.toFixed(2)}`)
                     .join(', ');
-                entry.innerHTML = `<span class="time">[${time}]</span> <span class="success">✅ Data: ${logMsg}</span>`;
-                terminalLog.appendChild(entry);
-                terminalLog.scrollTop = terminalLog.scrollHeight;
+                logTerminal(`✅ ${logMsg}`, 'success');
             }
         }
     }
@@ -562,7 +556,7 @@
                     const value = event.target.value;
                     handleBmsData(value.buffer);
                 });
-                logTerminal('📡 Notifikasi diaktifkan (data HEX akan ditampilkan)', 'info');
+                logTerminal('📡 Notifikasi diaktifkan', 'info');
             } else {
                 logTerminal('⚠️ Karakteristik tidak support notifikasi', 'warning');
             }
@@ -573,7 +567,7 @@
             } catch (_) { /* ignore */ }
 
         } catch (error) {
-            logTerminal(`❌ Error: ${error.message}`, 'error');
+            logTerminal(`Error: ${error.message}`, 'error');
             resetBmsUI();
             updateStatus(false);
         }
@@ -584,13 +578,15 @@
     // ============================================================
     async function sendData(text) {
         if (!isConnected || !characteristic) {
-            logTerminal('❌ Belum terhubung ke BMS', 'error');
+            logTerminal('Belum terhubung ke BMS', 'error');
             return;
         }
 
         try {
             // Jika input berupa HEX (contoh: "01 03 00 00")
             let dataToSend;
+            let displayHex = '';
+            
             if (text.match(/^[0-9A-Fa-f\s]+$/)) {
                 const hexString = text.replace(/\s/g, '');
                 const bytes = [];
@@ -598,29 +594,21 @@
                     bytes.push(parseInt(hexString.substr(i, 2), 16));
                 }
                 dataToSend = new Uint8Array(bytes);
-                logTerminal(`📤 HEX: ${text}`, 'tx');
+                displayHex = text;
             } else {
                 // Kirim sebagai teks biasa
                 const encoder = new TextEncoder();
                 dataToSend = encoder.encode(text + '\n');
-                logTerminal(`📤 ${text}`, 'tx');
+                displayHex = toHexString(dataToSend);
             }
             
             await characteristic.writeValue(dataToSend);
             
             // Tampilkan HEX yang dikirim
-            const hexSent = toHexString(dataToSend);
-            if (text.match(/^[0-9A-Fa-f\s]+$/)) {
-                // Sudah ditampilkan di atas
-            } else {
-                const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
-                const entry = document.createElement('div');
-                entry.innerHTML = `<span class="time">[${time}]</span> <span class="hex">📤 HEX: ${hexSent}</span>`;
-                terminalLog.appendChild(entry);
-                terminalLog.scrollTop = terminalLog.scrollHeight;
-            }
+            logTerminal(displayHex, 'hex_tx');
+            
         } catch (error) {
-            logTerminal(`❌ Gagal kirim: ${error.message}`, 'error');
+            logTerminal(`Gagal kirim: ${error.message}`, 'error');
         }
     }
 
@@ -637,7 +625,7 @@
         characteristic = null;
         updateStatus(false);
         resetBmsUI();
-        logTerminal('⛔ Koneksi diputus', 'error');
+        logTerminal('Koneksi diputus', 'error');
     }
 
     // ============================================================
@@ -662,11 +650,12 @@
             '01 03 02 0C 8A 79 03 7B',
             '02 01 00 08 00 00 00 00 00 00',
             '48 65 6C 6C 6F 20 42 4D 53',
-            '01 03 04 12 34 56 78 E5 9A'
+            '01 03 04 12 34 56 78 E5 9A',
+            '7B 22 76 6F 6C 74 61 67 65 22 3A 32 34 2E 35 30 2C 22 63 75 72 72 65 6E 74 22 3A 31 2E 32 33 7D'
         ];
         
         const randomHex = testHexData[Math.floor(Math.random() * testHexData.length)];
-        logTerminal(`🧪 Test HEX: ${randomHex}`, 'warning');
+        logTerminal(`Test HEX: ${randomHex}`, 'warning');
         
         // Konversi string HEX ke buffer
         const cleanHex = randomHex.replace(/\s/g, '');
@@ -687,7 +676,7 @@
     sendBtn.addEventListener('click', () => {
         const text = inputField.value.trim();
         if (!text) {
-            logTerminal('⚠️ Kolom input kosong', 'error');
+            logTerminal('Kolom input kosong', 'error');
             return;
         }
         sendData(text);
@@ -714,7 +703,7 @@
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
-        logTerminal('ℹ️ Gunakan Chrome di Android / Desktop', 'error');
+        logTerminal('ℹ️ Gunakan Chrome di Android / Desktop', 'info');
     }
 </script>
 
