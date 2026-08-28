@@ -22,7 +22,6 @@
             padding: 16px;
         }
 
-        /* ========== KARTU UTAMA ========== */
         .container {
             width: 100%;
             max-width: 480px;
@@ -37,7 +36,6 @@
             transition: all 0.3s ease;
         }
 
-        /* ========== HEADER ========== */
         .header {
             display: flex;
             justify-content: space-between;
@@ -76,7 +74,6 @@
             box-shadow: 0 0 20px #00ff88aa;
         }
 
-        /* ========== PANEL DATA BMS ========== */
         .bms-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -119,7 +116,6 @@
             background: rgba(0, 255, 200, 0.05);
         }
 
-        /* ========== TERMINAL / LOG ========== */
         .terminal {
             background: rgba(0, 10, 20, 0.7);
             border-radius: 20px;
@@ -150,63 +146,20 @@
             color: #3a6a8a;
             margin-right: 6px;
         }
-        .terminal .rx {
-            color: #5cf0c0;
-        }
-        .terminal .tx {
-            color: #70b0ff;
-        }
-        .terminal .info {
-            color: #a0b8d0;
-        }
-        .terminal .error {
-            color: #ff6b7a;
-        }
-        .terminal .warning {
-            color: #ffd93d;
-        }
-        .terminal .success {
-            color: #6fcf97;
-        }
-        .terminal .hex {
-            color: #bb86fc;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-        .terminal .hex-dev {
-            color: #4fc3f7;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-        .terminal .hex-bms {
-            color: #ffd54f;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-        .terminal .data-label {
-            color: #81d4fa;
-        }
-        .terminal .data-value {
-            color: #ffffff;
-            font-weight: bold;
-        }
-        .terminal .data-unit {
-            color: #78909c;
-        }
-        .terminal .progress {
-            color: #ffab40;
-        }
-        .terminal .crc-ok {
-            color: #69f0ae;
-        }
-        .terminal .crc-err {
-            color: #ff5252;
-        }
-        .terminal .packet-info {
-            color: #b39ddb;
-        }
+        .terminal .info { color: #a0b8d0; }
+        .terminal .error { color: #ff6b7a; }
+        .terminal .warning { color: #ffd93d; }
+        .terminal .success { color: #6fcf97; }
+        .terminal .hex { color: #bb86fc; font-weight: bold; }
+        .terminal .hex-dev { color: #4fc3f7; font-weight: bold; }
+        .terminal .hex-bms { color: #ffd54f; font-weight: bold; }
+        .terminal .progress { color: #ffab40; }
+        .terminal .crc-ok { color: #69f0ae; }
+        .terminal .crc-err { color: #ff5252; }
+        .terminal .packet-info { color: #b39ddb; }
+        .terminal .ping { color: #78909c; }
+        .terminal .data { color: #ffffff; }
 
-        /* ========== PROGRESS BAR ========== */
         .progress-container {
             width: 100%;
             height: 4px;
@@ -229,7 +182,6 @@
             transition: width 0.3s ease;
         }
 
-        /* ========== INPUT + TOMBOL ========== */
         .input-row {
             display: flex;
             gap: 12px;
@@ -310,15 +262,6 @@
             flex-wrap: wrap;
         }
 
-        .btn-success {
-            background: rgba(0, 255, 136, 0.12);
-            color: #00ff88;
-            border: 1px solid rgba(0, 255, 136, 0.15);
-        }
-        .btn-success:hover {
-            background: rgba(0, 255, 136, 0.2);
-        }
-
         .btn-dev {
             background: rgba(79, 195, 247, 0.12);
             color: #4fc3f7;
@@ -339,7 +282,6 @@
             background: rgba(255, 213, 79, 0.2);
         }
 
-        /* ========== RESPONSIVE ========== */
         @media (max-width: 420px) {
             .container { padding: 18px 14px 24px; }
             .bms-grid { gap: 8px; }
@@ -354,8 +296,6 @@
 <body>
 
 <div class="container">
-
-    <!-- HEADER -->
     <div class="header">
         <h1>⚡ BMS Terminal</h1>
         <div class="status-led">
@@ -364,7 +304,6 @@
         </div>
     </div>
 
-    <!-- PANEL BMS -->
     <div class="bms-grid">
         <div class="bms-card highlight">
             <div class="label">Tegangan</div>
@@ -384,20 +323,17 @@
         </div>
     </div>
 
-    <!-- PROGRESS BAR -->
     <div class="progress-container" id="progressContainer">
         <div class="progress-bar" id="progressBar"></div>
     </div>
 
-    <!-- TERMINAL LOG -->
     <div class="terminal" id="terminalLog">
         <div><span class="time">[system]</span> <span class="info">▶ Siap menerima data BMS</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Data diterima dalam 3 tahap (128+128+48 bytes)</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Hanya menampilkan ringkasan data</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Data BMS: 3 packet (128+128+48 bytes)</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Packet ping (4 bytes) akan diabaikan</span></div>
     </div>
 
-    <!-- INPUT + TOMBOL -->
     <div class="input-row">
         <input type="text" id="inputField" placeholder="Kirim HEX: 01 03 00 00" />
         <button class="btn btn-primary" id="sendBtn">🚀 Kirim</button>
@@ -409,12 +345,11 @@
         <button class="btn btn-bms" id="bmsInfoBtn">🔋 BMSInfo</button>
         <button class="btn btn-danger" id="disconnectBtn">⛔ Putus</button>
     </div>
-
 </div>
 
 <script>
     // ============================================================
-    // 1.  ELEMEN DOM
+    // 1. ELEMEN DOM
     // ============================================================
     const terminalLog = document.getElementById('terminalLog');
     const inputField = document.getElementById('inputField');
@@ -428,29 +363,29 @@
     const progressContainer = document.getElementById('progressContainer');
     const progressBar = document.getElementById('progressBar');
 
-    // Elemen BMS
     const bmsVoltage = document.getElementById('bmsVoltage');
     const bmsCurrent = document.getElementById('bmsCurrent');
     const bmsSoc = document.getElementById('bmsSoc');
     const bmsTemp = document.getElementById('bmsTemp');
 
     // ============================================================
-    // 2.  STATE
+    // 2. STATE
     // ============================================================
     let device = null;
     let server = null;
     let characteristic = null;
     let isConnected = false;
 
-    // Buffer untuk menyimpan data dari multiple packets
-    let dataBuffer = [];
-    let expectedTotalBytes = 304; // 128 + 128 + 48
+    // Buffer untuk data BMS (3 packet)
+    let bmsDataBuffer = [];
     let packetCount = 0;
+    let expectedPackets = 3;
     let dataTimer = null;
     let packetSizes = [];
+    let isCollecting = false;
 
     // ============================================================
-    // 3.  CRC CALCULATION (CRC16/XMODEM)
+    // 3. CRC CALCULATION
     // ============================================================
     function calculateCRC16(data) {
         let crc = 0x0000;
@@ -469,7 +404,7 @@
     }
 
     // ============================================================
-    // 4.  JK BMS PARSER (RESMI)
+    // 4. JK BMS PARSER
     // ============================================================
     class JKBMSParser {
         constructor() {
@@ -542,7 +477,6 @@
                     totalCells: this.cells,
                     dataLength: data.length
                 },
-                cells: [],
                 cellVoltages: [],
                 cellResistances: [],
                 temperatures: [],
@@ -550,7 +484,7 @@
                 statistics: {}
             };
 
-            // Parse Cell Voltages (offset 6)
+            // Parse Cell Voltages
             let minVoltage = 100;
             let maxVoltage = 0;
             let totalVoltage = 0;
@@ -582,7 +516,7 @@
             result.statistics.deltaVoltage = maxVoltage - minVoltage;
             result.statistics.validCells = validCells;
 
-            // Parse Cell Resistances (offset 64 + offset)
+            // Parse Cell Resistances
             for (let i = 0; i < this.cells; i++) {
                 const offset = 64 + this.offset + (i * 2);
                 if (offset + 1 >= data.length) break;
@@ -695,7 +629,6 @@
 
             result.status = status;
 
-            // MOS Temperature
             if (this.is32S) {
                 if (112 + this.offset + 1 < data.length) {
                     const mosTemp = this.getInt16(data, 112 + this.offset);
@@ -747,7 +680,7 @@
     }
 
     // ============================================================
-    // 5.  FUNGSI LOG TERMINAL
+    // 5. FUNGSI LOG TERMINAL
     // ============================================================
     function logTerminal(message, type = 'info') {
         const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
@@ -758,7 +691,7 @@
             'hex_tx': `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`,
             'hex_dev': `<span class="time">[${time}]</span> <span class="hex-dev">📱 DEV: ${message}</span>`,
             'hex_bms': `<span class="time">[${time}]</span> <span class="hex-bms">🔋 BMS: ${message}</span>`,
-            'tx': `<span class="time">[${time}]</span> <span class="tx">📤 ${message}</span>`,
+            'tx': `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`,
             'success': `<span class="time">[${time}]</span> <span class="success">✅ ${message}</span>`,
             'error': `<span class="time">[${time}]</span> <span class="error">❌ ${message}</span>`,
             'warning': `<span class="time">[${time}]</span> <span class="warning">⚠️ ${message}</span>`,
@@ -766,7 +699,8 @@
             'crc-ok': `<span class="time">[${time}]</span> <span class="crc-ok">✅ ${message}</span>`,
             'crc-err': `<span class="time">[${time}]</span> <span class="crc-err">❌ ${message}</span>`,
             'packet': `<span class="time">[${time}]</span> <span class="packet-info">📦 ${message}</span>`,
-            'data': `<span class="time">[${time}]</span> ${message}`,
+            'ping': `<span class="time">[${time}]</span> <span class="ping">📶 ${message}</span>`,
+            'data': `<span class="time">[${time}]</span> <span class="data">${message}</span>`,
         };
         
         entry.innerHTML = typeMap[type] || `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
@@ -779,7 +713,7 @@
     }
 
     // ============================================================
-    // 6.  KONVERSI DATA KE HEX (HANYA UNTUK HEADER)
+    // 6. KONVERSI DATA
     // ============================================================
     function toHexString(buffer) {
         const bytes = new Uint8Array(buffer);
@@ -807,7 +741,7 @@
     }
 
     // ============================================================
-    // 7.  UPDATE UI BMS
+    // 7. UPDATE UI BMS
     // ============================================================
     function updateBmsUI(data) {
         if (data.voltage !== undefined && !isNaN(data.voltage) && data.voltage > 0) {
@@ -832,7 +766,7 @@
     }
 
     // ============================================================
-    // 8.  UPDATE PROGRESS
+    // 8. UPDATE PROGRESS
     // ============================================================
     function updateProgress(percent) {
         progressContainer.classList.add('active');
@@ -846,24 +780,34 @@
     }
 
     // ============================================================
-    // 9.  HANDLE DATA MASUK DARI BLUETOOTH (DENGAN BUFFER)
+    // 9. HANDLE DATA MASUK (DENGAN FILTER PING)
     // ============================================================
     function handleBmsData(buffer) {
         const bytes = new Uint8Array(buffer);
         const dataLength = bytes.length;
         
+        // CEK: APAKAH INI PACKET PING? (4 bytes)
+        // Ping biasanya berupa data 4 byte dengan header tertentu
+        if (dataLength === 4) {
+            const hexStr = toHexString(buffer);
+            logTerminal(`Ping: ${hexStr} (diabaikan)`, 'ping');
+            return; // Abaikan packet ping
+        }
+        
+        // Ini adalah data BMS (bukan ping)
         // Simpan ukuran packet
         packetSizes.push(dataLength);
         
         // Log packet info (tanpa data HEX lengkap)
-        logTerminal(`Packet #${packetCount + 1}: ${dataLength} bytes | Header: ${getHeaderHex(Array.from(bytes))}`, 'packet');
+        const headerHex = getHeaderHex(Array.from(bytes));
+        logTerminal(`Packet #${packetCount + 1}: ${dataLength} bytes | ${headerHex}`, 'packet');
         
         // Tambahkan ke buffer
-        dataBuffer.push(...Array.from(bytes));
+        bmsDataBuffer.push(...Array.from(bytes));
         packetCount++;
         
-        // Update progress
-        const progress = Math.min((dataBuffer.length / expectedTotalBytes) * 100, 100);
+        // Update progress berdasarkan packet yang diharapkan (3 packet)
+        const progress = Math.min((packetCount / expectedPackets) * 100, 100);
         updateProgress(progress);
         
         // Reset timer
@@ -871,31 +815,31 @@
             clearTimeout(dataTimer);
         }
         
-        // Set timer untuk menunggu data selesai (500ms timeout)
+        // Set timer untuk menunggu data selesai (300ms timeout)
         dataTimer = setTimeout(() => {
             processCompleteData();
-        }, 500);
+        }, 300);
     }
 
     // ============================================================
     // 10. PROSES DATA SETELAH SEMUA PAKET TERKUMPUL
     // ============================================================
     function processCompleteData() {
-        if (dataBuffer.length === 0) {
-            logTerminal('⚠️ Tidak ada data untuk diproses', 'warning');
+        if (bmsDataBuffer.length === 0) {
+            logTerminal('⚠️ Tidak ada data BMS untuk diproses', 'warning');
             resetCollector();
             return;
         }
 
-        const totalBytes = dataBuffer.length;
+        const totalBytes = bmsDataBuffer.length;
         const packetInfo = packetSizes.join(' + ');
         
-        logTerminal(`📊 Total data terkumpul: ${totalBytes} bytes (${packetInfo})`, 'progress');
+        logTerminal(`📊 Total data BMS: ${totalBytes} bytes (${packetInfo})`, 'progress');
 
-        // Cek CRC
+        // Cek CRC (byte terakhir)
         try {
-            const receivedCRC = dataBuffer[dataBuffer.length - 1];
-            const dataWithoutCRC = dataBuffer.slice(0, dataBuffer.length - 1);
+            const receivedCRC = bmsDataBuffer[bmsDataBuffer.length - 1];
+            const dataWithoutCRC = bmsDataBuffer.slice(0, bmsDataBuffer.length - 1);
             const calculatedCRC = calculateCRC16(dataWithoutCRC) & 0xFF;
             
             if (receivedCRC === calculatedCRC) {
@@ -915,28 +859,35 @@
                             temperature: result.temperatures[0]?.temp || 0
                         });
 
-                        // Tampilkan hasil parsing (ringkasan)
+                        // Tampilkan hasil parsing
                         const outputLines = parser.formatOutput(result);
                         for (const line of outputLines) {
                             logTerminal(line, 'data');
                         }
-                        logTerminal(`✅ Parsing berhasil (${result.header.totalCells} cells)`, 'success');
+                        logTerminal(`✅ Parsing berhasil (${result.header.totalCells} cells, ${result.header.dataLength} bytes)`, 'success');
                     }
                 } catch (parseError) {
                     logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error');
-                    // Fallback ke simple parser
-                    try {
-                        const parsed = parseSimpleBMS(dataWithoutCRC);
-                        if (parsed) {
-                            updateBmsUI(parsed);
-                            logTerminal('✅ Simple parsing berhasil (fallback)', 'success');
-                        }
-                    } catch (e) {
-                        logTerminal(`⚠️ Fallback error: ${e.message}`, 'error');
-                    }
                 }
             } else {
                 logTerminal(`CRC Mismatch! Recv: 0x${receivedCRC.toString(16).padStart(2, '0').toUpperCase()}, Calc: 0x${calculatedCRC.toString(16).padStart(2, '0').toUpperCase()}`, 'crc-err');
+                
+                // Coba parse tanpa CRC untuk debugging
+                try {
+                    const parser = new JKBMSParser();
+                    const result = parser.parse(bmsDataBuffer);
+                    if (result) {
+                        logTerminal('⚠️ Data diparse tanpa validasi CRC (debug)', 'warning');
+                        updateBmsUI({
+                            voltage: result.status.totalVoltage,
+                            current: result.status.current,
+                            soc: result.status.soc,
+                            temperature: result.temperatures[0]?.temp || 0
+                        });
+                    }
+                } catch (e) {
+                    logTerminal(`⚠️ Parse tanpa CRC gagal: ${e.message}`, 'error');
+                }
             }
         } catch (crcError) {
             logTerminal(`⚠️ CRC error: ${crcError.message}`, 'error');
@@ -947,45 +898,10 @@
     }
 
     // ============================================================
-    // 11. SIMPLE PARSER (FALLBACK)
-    // ============================================================
-    function parseSimpleBMS(data) {
-        try {
-            if (data.length < 142) return null;
-
-            const voltage = ((data[121] || 0) << 24) | 
-                          ((data[120] || 0) << 16) | 
-                          ((data[119] || 0) << 8) | 
-                          (data[118] || 0);
-            const totalVoltage = voltage * 0.001;
-            
-            let currentRaw = ((data[129] || 0) << 24) | 
-                           ((data[128] || 0) << 16) | 
-                           ((data[127] || 0) << 8) | 
-                           (data[126] || 0);
-            if (currentRaw > 0x7FFFFFFF) currentRaw = currentRaw - 0x100000000;
-            const current = currentRaw * 0.001;
-            
-            const soc = data[141] || 0;
-            
-            let tempRaw = ((data[131] || 0) << 8) | (data[130] || 0);
-            if (tempRaw > 0x7FFF) tempRaw = tempRaw - 0x10000;
-            const temperature = tempRaw * 0.1;
-
-            if (totalVoltage > 0 && totalVoltage < 100) {
-                return { voltage: totalVoltage, current, soc, temperature };
-            }
-            return null;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    // ============================================================
-    // 12. RESET COLLECTOR
+    // 11. RESET COLLECTOR
     // ============================================================
     function resetCollector() {
-        dataBuffer = [];
+        bmsDataBuffer = [];
         packetCount = 0;
         packetSizes = [];
         if (dataTimer) {
@@ -996,7 +912,7 @@
     }
 
     // ============================================================
-    // 13. KONEKSI BLUETOOTH
+    // 12. KONEKSI BLUETOOTH
     // ============================================================
     async function connectBle() {
         try {
@@ -1039,7 +955,8 @@
                     handleBmsData(value.buffer);
                 });
                 logTerminal('📡 Notifikasi diaktifkan', 'info');
-                logTerminal('📦 Menunggu data dalam 3 tahap (128+128+48 bytes)', 'info');
+                logTerminal('📦 Menunggu 3 packet data BMS (128+128+48 bytes)', 'info');
+                logTerminal('📶 Packet ping (4 bytes) akan diabaikan', 'info');
             } else {
                 logTerminal('⚠️ Karakteristik tidak support notifikasi', 'warning');
             }
@@ -1058,7 +975,7 @@
     }
 
     // ============================================================
-    // 14. KIRIM DATA HEX
+    // 13. KIRIM DATA
     // ============================================================
     async function sendHexData(hexString, logType = 'hex_tx') {
         if (!isConnected || !characteristic) {
@@ -1081,9 +998,6 @@
         }
     }
 
-    // ============================================================
-    // 15. FUNGSI KIRIM DATA KHUSUS
-    // ============================================================
     async function sendDevInfo() {
         const hexData = 'AA 55 90 EB 97 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11';
         await sendHexData(hexData, 'hex_dev');
@@ -1095,7 +1009,7 @@
     }
 
     // ============================================================
-    // 16. PUTUS KONEKSI
+    // 14. PUTUS KONEKSI
     // ============================================================
     function disconnect() {
         if (device && device.gatt) {
@@ -1112,7 +1026,7 @@
     }
 
     // ============================================================
-    // 17. UPDATE STATUS UI
+    // 15. UPDATE STATUS
     // ============================================================
     function updateStatus(connected) {
         if (connected) {
@@ -1125,7 +1039,7 @@
     }
 
     // ============================================================
-    // 18. EVENT LISTENER
+    // 16. EVENT LISTENER
     // ============================================================
     scanBtn.addEventListener('click', connectBle);
     devInfoBtn.addEventListener('click', sendDevInfo);
@@ -1171,15 +1085,13 @@
     disconnectBtn.addEventListener('click', disconnect);
 
     // ============================================================
-    // 19. INISIALISASI
+    // 17. INISIALISASI
     // ============================================================
     logTerminal('🚀 Web BMS Terminal siap', 'info');
     logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
     logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
-    logTerminal('📦 Data diterima dalam 3 tahap (128+128+48 bytes) dengan CRC', 'info');
-    logTerminal('📌 Hanya menampilkan ringkasan data (header + length)', 'info');
-    logTerminal('📌 Tombol DevInfo: AA 55 90 EB 97 ... 11', 'info');
-    logTerminal('📌 Tombol BMSInfo: AA 55 90 EB 96 ... 10', 'info');
+    logTerminal('📦 Data BMS: 3 packet (128+128+48 bytes)', 'info');
+    logTerminal('📶 Packet ping (4 bytes) akan diabaikan', 'info');
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
