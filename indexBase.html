@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>BMS Bluetooth Terminal</title>
+    <style>
+        /* ========== RESET & GLOBAL ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(ellipse at 50% 0%, #0b0e1a, #03050c);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        /* ========== KARTU UTAMA ========== */
+        .container {
+            width: 100%;
+            max-width: 480px;
+            background: rgba(18, 28, 46, 0.75);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-radius: 40px;
+            padding: 24px 20px 32px;
+            border: 1px solid rgba(0, 255, 255, 0.15);
+            box-shadow: 0 20px 60px rgba(0, 180, 255, 0.15),
+                        0 0 80px rgba(0, 200, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #00f0ff, #7b61ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+
+        .status-led {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #8a9bb5;
+        }
+
+        .led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff3b3b;
+            box-shadow: 0 0 12px #ff3b3b88;
+            transition: 0.3s;
+        }
+
+        .led.connected {
+            background: #00ff88;
+            box-shadow: 0 0 20px #00ff88aa;
+        }
+
+        /* ========== PANEL DATA BMS ========== */
+        .bms-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .bms-card {
+            background: rgba(0, 20, 40, 0.5);
+            border-radius: 18px;
+            padding: 14px 12px;
+            border: 1px solid rgba(0, 255, 255, 0.08);
+            text-align: center;
+            transition: 0.2s;
+        }
+
+        .bms-card .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #6a7f9e;
+            margin-bottom: 4px;
+        }
+
+        .bms-card .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #d0e5ff;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .bms-card .unit {
+            font-size: 12px;
+            color: #4a6a8a;
+            margin-left: 2px;
+        }
+
+        .bms-card.highlight {
+            border-color: rgba(0, 255, 200, 0.3);
+            background: rgba(0, 255, 200, 0.05);
+        }
+
+        /* ========== TERMINAL / LOG ========== */
+        .terminal {
+            background: rgba(0, 10, 20, 0.7);
+            border-radius: 20px;
+            padding: 16px;
+            height: 170px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.06);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.8;
+            color: #8bb4d8;
+            scroll-behavior: smooth;
+        }
+
+        .terminal::-webkit-scrollbar {
+            width: 4px;
+        }
+        .terminal::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .terminal::-webkit-scrollbar-thumb {
+            background: #1a3a5a;
+            border-radius: 20px;
+        }
+
+        .terminal .time {
+            color: #3a6a8a;
+            margin-right: 8px;
+        }
+        .terminal .rx {
+            color: #5cf0c0;
+        }
+        .terminal .tx {
+            color: #70b0ff;
+        }
+        .terminal .info {
+            color: #a0b8d0;
+        }
+        .terminal .error {
+            color: #ff6b7a;
+        }
+
+        /* ========== INPUT + TOMBOL ========== */
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 14px 18px;
+            border-radius: 60px;
+            border: 1px solid rgba(0, 255, 255, 0.15);
+            background: rgba(0, 20, 40, 0.6);
+            color: #d0e5ff;
+            font-size: 15px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .input-row input::placeholder {
+            color: #3a5a7a;
+        }
+        .input-row input:focus {
+            border-color: #00e0ff;
+            box-shadow: 0 0 24px rgba(0, 224, 255, 0.1);
+        }
+
+        .btn {
+            padding: 14px 22px;
+            border: none;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.25s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00c8ff, #7b61ff);
+            color: #fff;
+            box-shadow: 0 4px 24px rgba(0, 200, 255, 0.25);
+        }
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 32px rgba(0, 200, 255, 0.35);
+        }
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        .btn-secondary {
+            background: rgba(0, 200, 255, 0.08);
+            color: #7bb8e0;
+            border: 1px solid rgba(0, 200, 255, 0.15);
+        }
+        .btn-secondary:hover {
+            background: rgba(0, 200, 255, 0.15);
+        }
+
+        .btn-danger {
+            background: rgba(255, 60, 60, 0.12);
+            color: #ff7a7a;
+            border: 1px solid rgba(255, 60, 60, 0.15);
+        }
+        .btn-danger:hover {
+            background: rgba(255, 60, 60, 0.2);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 420px) {
+            .container { padding: 18px 14px 24px; }
+            .bms-grid { gap: 8px; }
+            .bms-card .value { font-size: 18px; }
+            .input-row { flex-wrap: wrap; }
+            .input-row input { min-width: 100%; }
+            .btn-group { width: 100%; justify-content: stretch; }
+            .btn-group .btn { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="header">
+        <h1>⚡ BMS Terminal</h1>
+        <div class="status-led">
+            <span id="statusText">Putus</span>
+            <span class="led" id="ledIndicator"></span>
+        </div>
+    </div>
+
+    <!-- PANEL BMS -->
+    <div class="bms-grid">
+        <div class="bms-card highlight">
+            <div class="label">Tegangan</div>
+            <div class="value"><span id="bmsVoltage">--</span><span class="unit">V</span></div>
+        </div>
+        <div class="bms-card highlight">
+            <div class="label">Arus</div>
+            <div class="value"><span id="bmsCurrent">--</span><span class="unit">A</span></div>
+        </div>
+        <div class="bms-card">
+            <div class="label">SOC</div>
+            <div class="value"><span id="bmsSoc">--</span><span class="unit">%</span></div>
+        </div>
+        <div class="bms-card">
+            <div class="label">Suhu</div>
+            <div class="value"><span id="bmsTemp">--</span><span class="unit">°C</span></div>
+        </div>
+    </div>
+
+    <!-- TERMINAL LOG -->
+    <div class="terminal" id="terminalLog">
+        <div><span class="time">[system]</span> <span class="info">▶ Siap menerima data BMS</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
+    </div>
+
+    <!-- INPUT + TOMBOL -->
+    <div class="input-row">
+        <input type="text" id="inputField" placeholder="Kirim perintah / data..." />
+        <button class="btn btn-primary" id="sendBtn">🚀 Kirim</button>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-secondary" id="scanBtn">🔍 Cari BMS</button>
+        <button class="btn btn-danger" id="disconnectBtn">⛔ Putus</button>
+    </div>
+
+</div>
+
+<script>
+    // ============================================================
+    // 1.  ELEMEN DOM
+    // ============================================================
+    const terminalLog = document.getElementById('terminalLog');
+    const inputField = document.getElementById('inputField');
+    const sendBtn = document.getElementById('sendBtn');
+    const scanBtn = document.getElementById('scanBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const ledIndicator = document.getElementById('ledIndicator');
+    const statusText = document.getElementById('statusText');
+
+    // Elemen BMS
+    const bmsVoltage = document.getElementById('bmsVoltage');
+    const bmsCurrent = document.getElementById('bmsCurrent');
+    const bmsSoc = document.getElementById('bmsSoc');
+    const bmsTemp = document.getElementById('bmsTemp');
+
+    // ============================================================
+    // 2.  STATE
+    // ============================================================
+    let device = null;
+    let server = null;
+    let characteristic = null;    // karakteristik untuk TX/RX
+    let isConnected = false;
+
+    // ============================================================
+    // 3.  FUNGSI LOG TERMINAL
+    // ============================================================
+    function logTerminal(message, type = 'info') {
+        const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
+        const entry = document.createElement('div');
+        entry.innerHTML = `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
+        terminalLog.appendChild(entry);
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+        // batasi jumlah baris agar tidak overload
+        if (terminalLog.children.length > 120) {
+            terminalLog.removeChild(terminalLog.children[0]);
+        }
+    }
+
+    // ============================================================
+    // 4.  UPDATE UI BMS
+    // ============================================================
+    function updateBmsUI(data) {
+        // data = { voltage, current, soc, temperature }
+        if (data.voltage !== undefined) bmsVoltage.textContent = data.voltage.toFixed(2);
+        if (data.current !== undefined) bmsCurrent.textContent = data.current.toFixed(2);
+        if (data.soc !== undefined) bmsSoc.textContent = data.soc.toFixed(1);
+        if (data.temperature !== undefined) bmsTemp.textContent = data.temperature.toFixed(1);
+    }
+
+    function resetBmsUI() {
+        bmsVoltage.textContent = '--';
+        bmsCurrent.textContent = '--';
+        bmsSoc.textContent = '--';
+        bmsTemp.textContent = '--';
+    }
+
+    // ============================================================
+    // 5.  PARSING DATA BMS (CONTOH FORMAT)
+    // ============================================================
+    function parseBmsData(raw) {
+        // Contoh format: "V:24.50,A:1.23,S:78.5,T:32.1"
+        // atau bisa juga binary / JSON, sesuaikan dengan BMS-mu
+        try {
+            // coba parse sebagai JSON dulu
+            if (raw.trim().startsWith('{')) {
+                const json = JSON.parse(raw);
+                return {
+                    voltage: json.voltage || json.V || json.volt,
+                    current: json.current || json.I || json.amp,
+                    soc: json.soc || json.SOC || json.battery,
+                    temperature: json.temperature || json.T || json.temp
+                };
+            }
+
+            // fallback: parse key:value
+            const obj = {};
+            const pairs = raw.split(',').map(s => s.trim());
+            for (const pair of pairs) {
+                const [key, val] = pair.split(':').map(s => s.trim());
+                if (key && val !== undefined) {
+                    const num = parseFloat(val);
+                    obj[key.toLowerCase()] = isNaN(num) ? val : num;
+                }
+            }
+
+            return {
+                voltage: obj.v || obj.volt || obj.voltage,
+                current: obj.a || obj.i || obj.amp || obj.current,
+                soc: obj.soc || obj.s || obj.battery,
+                temperature: obj.t || obj.temp || obj.temperature
+            };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // ============================================================
+    // 6.  HANDLE DATA MASUK DARI BLUETOOTH
+    // ============================================================
+    function handleBmsData(rawString) {
+        logTerminal(`📥 ${rawString}`, 'rx');
+
+        const parsed = parseBmsData(rawString);
+        if (parsed) {
+            // cek apakah ada nilai yang valid
+            const hasValid = Object.values(parsed).some(v => typeof v === 'number' && !isNaN(v));
+            if (hasValid) {
+                updateBmsUI(parsed);
+                logTerminal('✅ Data BMS berhasil di-parse', 'info');
+            } else {
+                logTerminal('⚠️ Data diterima tapi tidak dikenali sebagai BMS', 'error');
+            }
+        } else {
+            logTerminal('⚠️ Gagal parse data BMS', 'error');
+        }
+    }
+
+    // ============================================================
+    // 7.  KONEKSI BLUETOOTH
+    // ============================================================
+    async function connectBle() {
+        try {
+            logTerminal('🔍 Mencari perangkat BMS...', 'info');
+
+            // Perbaikan: Gunakan filters ATAU acceptAllDevices, tidak keduanya
+            device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }
+                ]
+            });
+
+            logTerminal(`✅ Terhubung ke: ${device.name || 'Tanpa Nama'}`, 'info');
+
+            server = await device.gatt.connect();
+            isConnected = true;
+            updateStatus(true);
+
+            // Coba dapatkan service dan characteristic
+            const serviceUUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+            const charUUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+            let service;
+            try {
+                service = await server.getPrimaryService(serviceUUID);
+            } catch (_) {
+                // coba cari service pertama yang tersedia
+                const services = await server.getPrimaryServices();
+                if (services.length === 0) throw new Error('Tidak ada service');
+                service = services[0];
+                logTerminal(`ℹ️ Menggunakan service: ${service.uuid}`, 'info');
+            }
+
+            characteristic = await service.getCharacteristic(charUUID);
+            logTerminal('✅ Karakteristik ditemukan, siap kirim/terima', 'info');
+
+            // Subscribe notifikasi
+            if (characteristic.properties.notify) {
+                await characteristic.startNotifications();
+                characteristic.addEventListener('characteristicvaluechanged', (event) => {
+                    const value = event.target.value;
+                    const decoder = new TextDecoder('utf-8');
+                    const raw = decoder.decode(value);
+                    handleBmsData(raw);
+                });
+                logTerminal('📡 Notifikasi diaktifkan (data masuk realtime)', 'info');
+            } else {
+                logTerminal('⚠️ Karakteristik tidak support notifikasi, polling diperlukan', 'error');
+            }
+
+            // Baca data awal (opsional)
+            try {
+                const value = await characteristic.readValue();
+                const decoder = new TextDecoder('utf-8');
+                const raw = decoder.decode(value);
+                if (raw) handleBmsData(raw);
+            } catch (_) { /* ignore */ }
+
+        } catch (error) {
+            logTerminal(`❌ Error: ${error.message}`, 'error');
+            resetBmsUI();
+            updateStatus(false);
+        }
+    }
+
+    // ============================================================
+    // 8.  KIRIM DATA
+    // ============================================================
+    async function sendData(text) {
+        if (!isConnected || !characteristic) {
+            logTerminal('❌ Belum terhubung ke BMS', 'error');
+            return;
+        }
+
+        try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(text + '\n'); // tambah newline jika diperlukan
+            await characteristic.writeValue(data);
+            logTerminal(`📤 ${text}`, 'tx');
+        } catch (error) {
+            logTerminal(`❌ Gagal kirim: ${error.message}`, 'error');
+        }
+    }
+
+    // ============================================================
+    // 9.  PUTUS KONEKSI
+    // ============================================================
+    function disconnect() {
+        if (device && device.gatt) {
+            try { device.gatt.disconnect(); } catch (_) {}
+        }
+        isConnected = false;
+        device = null;
+        server = null;
+        characteristic = null;
+        updateStatus(false);
+        resetBmsUI();
+        logTerminal('⛔ Koneksi diputus', 'error');
+    }
+
+    // ============================================================
+    // 10. UPDATE STATUS UI
+    // ============================================================
+    function updateStatus(connected) {
+        if (connected) {
+            ledIndicator.className = 'led connected';
+            statusText.textContent = 'Terhubung';
+        } else {
+            ledIndicator.className = 'led';
+            statusText.textContent = 'Putus';
+        }
+    }
+
+    // ============================================================
+    // 11. EVENT LISTENER
+    // ============================================================
+    scanBtn.addEventListener('click', connectBle);
+
+    sendBtn.addEventListener('click', () => {
+        const text = inputField.value.trim();
+        if (!text) {
+            logTerminal('⚠️ Kolom input kosong', 'error');
+            return;
+        }
+        sendData(text);
+        inputField.value = '';
+    });
+
+    inputField.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendBtn.click();
+        }
+    });
+
+    disconnectBtn.addEventListener('click', disconnect);
+
+    // ============================================================
+    // 12. INISIALISASI
+    // ============================================================
+    logTerminal('🚀 Web BMS Terminal siap', 'info');
+    logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
+    logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
+
+    // Cek dukungan Web Bluetooth
+    if (!navigator.bluetooth) {
+        logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
+        logTerminal('ℹ️ Gunakan Chrome di Android / Desktop', 'error');
+    }
+</script>
+
+</body>
+</html>
