@@ -355,6 +355,16 @@
             background: rgba(255, 152, 0, 0.2);
         }
 
+        .btn-multi {
+            background: rgba(0, 230, 118, 0.12);
+            color: #69f0ae;
+            border: 1px solid rgba(0, 230, 118, 0.15);
+            flex: 1;
+        }
+        .btn-multi:hover {
+            background: rgba(0, 230, 118, 0.2);
+        }
+
         @media (max-width: 420px) {
             .container { padding: 16px 12px 20px; }
             .bms-grid { gap: 6px; }
@@ -462,7 +472,7 @@
     </div>
 
     <div class="input-row">
-        <input type="text" id="inputField" placeholder="Kirim HEX: 01 03 00 00" />
+        <input type="text" id="inputField" placeholder="Kirim HEX (pisah dengan spasi / newline)" />
         <button class="btn btn-primary" id="sendBtn">🚀 Kirim</button>
     </div>
 
@@ -470,6 +480,7 @@
         <button class="btn btn-secondary" id="scanBtn">🔍 Cari BMS</button>
         <button class="btn btn-dev" id="devInfoBtn">📱 DevInfo</button>
         <button class="btn btn-bms" id="bmsInfoBtn">🔋 BMSInfo</button>
+        <button class="btn btn-multi" id="multiSendBtn">📤 Kirim Semua</button>
         <button class="btn btn-reset" id="resetBtn">🔄 Reset</button>
         <button class="btn btn-danger" id="disconnectBtn">⛔ Putus</button>
     </div>
@@ -487,6 +498,7 @@
     const bmsInfoBtn = document.getElementById('bmsInfoBtn');
     const disconnectBtn = document.getElementById('disconnectBtn');
     const resetBtn = document.getElementById('resetBtn');
+    const multiSendBtn = document.getElementById('multiSendBtn');
     const ledIndicator = document.getElementById('ledIndicator');
     const statusText = document.getElementById('statusText');
     const progressContainer = document.getElementById('progressContainer');
@@ -1262,7 +1274,7 @@
     }
 
     // ============================================================
-    // 13. KIRIM DATA
+    // 13. KIRIM DATA - DIPERBAIKI UNTUK BANYAK DATA
     // ============================================================
     async function sendHexData(hexString, logType = 'hex_tx') {
         if (!isConnected || !characteristic) {
@@ -1273,16 +1285,88 @@
         try {
             resetCollector();
             
+            // Bersihkan dan proses hex string
+            const cleanHex = hexString.replace(/\s/g, '');
+            // Bagi menjadi beberapa paket jika lebih dari 20 byte (karakteristik BLE biasanya max 20-23 byte)
+            const maxChunkSize = 20; // bytes
             const bytes = hexStringToBytes(hexString);
-            const dataToSend = new Uint8Array(bytes);
-            await characteristic.writeValue(dataToSend);
             
-            logTerminal(hexString, logType);
-            return true;
+            if (bytes.length <= maxChunkSize) {
+                // Kirim langsung
+                const dataToSend = new Uint8Array(bytes);
+                await characteristic.writeValue(dataToSend);
+                logTerminal(hexString, logType);
+                return true;
+            } else {
+                // Kirim dalam beberapa chunk
+                logTerminal(`📦 Mengirim ${bytes.length} bytes dalam beberapa paket...`, 'progress');
+                for (let i = 0; i < bytes.length; i += maxChunkSize) {
+                    const chunk = bytes.slice(i, i + maxChunkSize);
+                    const chunkHex = arrayToHexString(chunk);
+                    const dataToSend = new Uint8Array(chunk);
+                    await characteristic.writeValue(dataToSend);
+                    // Tunggu sedikit agar BMS punya waktu memproses
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    logTerminal(`📤 Chunk ${Math.floor(i/maxChunkSize)+1}: ${chunkHex}`, 'hex_tx');
+                }
+                logTerminal(`✅ ${Math.ceil(bytes.length/maxChunkSize)} paket terkirim`, 'success');
+                return true;
+            }
         } catch (error) {
             logTerminal(`Gagal kirim: ${error.message}`, 'error');
             return false;
         }
+    }
+
+    // ============================================================
+    // 13b. KIRIM SEMUA DATA DARI INPUT (MULTI-LINE)
+    // ============================================================
+    async function sendAllData() {
+        const rawText = inputField.value.trim();
+        if (!rawText) {
+            logTerminal('Kolom input kosong', 'error');
+            return;
+        }
+
+        // Split berdasarkan newline atau koma atau spasi ganda
+        const lines = rawText.split(/[\n,;]+/).map(s => s.trim()).filter(s => s.length > 0);
+        
+        if (lines.length === 0) {
+            logTerminal('Tidak ada data valid untuk dikirim', 'error');
+            return;
+        }
+
+        logTerminal(`📤 Mengirim ${lines.length} perintah...`, 'progress');
+        
+        let successCount = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const cmd = lines[i];
+            // Cek apakah ini HEX atau teks biasa
+            if (cmd.match(/^[0-9A-Fa-f\s]+$/)) {
+                const result = await sendHexData(cmd, 'hex_tx');
+                if (result) successCount++;
+            } else {
+                // Kirim sebagai teks
+                try {
+                    if (isConnected && characteristic) {
+                        const encoder = new TextEncoder();
+                        const dataToSend = encoder.encode(cmd + '\n');
+                        await characteristic.writeValue(dataToSend);
+                        logTerminal(`📤 "${cmd}"`, 'tx');
+                        successCount++;
+                    } else {
+                        logTerminal('Belum terhubung ke BMS', 'error');
+                    }
+                } catch (error) {
+                    logTerminal(`Gagal kirim teks: ${error.message}`, 'error');
+                }
+            }
+            // Tunggu sebentar antar perintah
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        logTerminal(`✅ Selesai: ${successCount}/${lines.length} perintah terkirim`, 'success');
+        inputField.value = '';
     }
 
     async function sendDevInfo() {
@@ -1342,6 +1426,7 @@
     devInfoBtn.addEventListener('click', sendDevInfo);
     bmsInfoBtn.addEventListener('click', sendBmsInfo);
     resetBtn.addEventListener('click', resetTerminal);
+    multiSendBtn.addEventListener('click', sendAllData);
 
     sendBtn.addEventListener('click', () => {
         const text = inputField.value.trim();
@@ -1376,7 +1461,16 @@
     inputField.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            sendBtn.click();
+            // Cek apakah Shift+Enter untuk newline
+            if (e.shiftKey) {
+                // Tambahkan newline ke input
+                const start = inputField.selectionStart;
+                const end = inputField.selectionEnd;
+                inputField.value = inputField.value.substring(0, start) + '\n' + inputField.value.substring(end);
+                inputField.selectionStart = inputField.selectionEnd = start + 1;
+            } else {
+                sendBtn.click();
+            }
         }
     });
 
@@ -1391,6 +1485,7 @@
     logTerminal('📦 Deteksi Header: 55 AA EB 90', 'info');
     logTerminal('📶 Deteksi Terminator: 41 54 0D 0A', 'info');
     logTerminal('📄 Mapping offset reverse engineering', 'info');
+    logTerminal('💡 Gunakan "Kirim Semua" untuk mengirim banyak data (pisah dengan newline/coma)', 'info');
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
