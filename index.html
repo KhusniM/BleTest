@@ -443,8 +443,8 @@
             <span class="sub" id="dashCapacityPct">--</span>
         </div>
         <div class="dashboard-card highlight">
-            <div class="label">Sel Aktif</div>
-            <div class="value"><span id="dashActiveCells">--</span><span class="unit">cell</span></div>
+            <div class="label">Active Cells</div>
+            <div class="value"><span id="dashActiveCells">--</span><span class="unit"></span></div>
             <span class="sub" id="dashBmsType">--</span>
         </div>
     </div>
@@ -1003,13 +1003,13 @@
         if (s.capacityRemain !== undefined && s.capacityNominal !== undefined) {
             dashCapacity.textContent = s.capacityRemain.toFixed(2);
             const pct = (s.capacityRemain / s.capacityNominal * 100);
-            dashCapacityPct.textContent = `${pct.toFixed(1)}% dari ${s.capacityNominal.toFixed(1)}Ah`;
+            dashCapacityPct.textContent = `${pct.toFixed(1)}% From ${s.capacityNominal.toFixed(1)}Ah`;
         }
 
         // Dashboard - Active Cells
         if (result.header.totalCells !== undefined) {
             dashActiveCells.textContent = result.header.totalCells;
-            dashBmsType.textContent = s.batteryType || 'Unknown';
+            dashBmsType.textContent = 'Cell' || 'Unknown';
         }
     }
 
