@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>BMS Bluetooth Terminal v2</title>
+    <title>BMS Terminal - Log Mode</title>
     <style>
         * {
             margin: 0;
@@ -69,6 +69,25 @@
         .led.connected {
             background: #00ff88;
             box-shadow: 0 0 20px #00ff88aa;
+        }
+
+        .mtu-info {
+            font-size: 10px;
+            color: #4a6a8a;
+            text-align: center;
+            padding: 6px;
+            margin-bottom: 10px;
+            background: rgba(0, 20, 40, 0.3);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 255, 0.05);
+        }
+        .mtu-info span {
+            color: #4fc3f7;
+            font-weight: bold;
+        }
+        .mtu-info .log-mode {
+            color: #ffd54f;
+            font-weight: bold;
         }
 
         .bms-grid {
@@ -173,7 +192,7 @@
             padding: 14px;
             height: 160px;
             overflow-y: auto;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             border: 1px solid rgba(0, 255, 255, 0.06);
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
             font-size: 9px;
@@ -211,6 +230,9 @@
         .terminal .cell-data { color: #81c784; }
         .terminal .temp-data { color: #ffab91; }
         .terminal .stat-data { color: #90caf9; }
+        .terminal .log-ringkas { color: #4dd0e1; font-weight: bold; }
+        .terminal .log-normal { color: #81c784; }
+        .terminal .log-detail { color: #ffcc80; }
 
         .progress-container {
             width: 100%;
@@ -340,15 +362,30 @@
             background: rgba(255, 152, 0, 0.2);
         }
 
-        .btn-multi {
-            background: rgba(0, 230, 118, 0.12);
-            color: #69f0ae;
-            border: 1px solid rgba(0, 230, 118, 0.15);
+        .btn-log {
+            background: rgba(156, 39, 176, 0.12);
+            color: #ce93d8;
+            border: 1px solid rgba(156, 39, 176, 0.15);
             flex: 1;
         }
-        .btn-multi:hover {
-            background: rgba(0, 230, 118, 0.2);
+        .btn-log:hover {
+            background: rgba(156, 39, 176, 0.2);
         }
+        .btn-log.active {
+            background: rgba(156, 39, 176, 0.25);
+            border-color: rgba(156, 39, 176, 0.4);
+        }
+
+        .log-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        .log-indicator.ringkas { background: #4dd0e1; }
+        .log-indicator.normal { background: #81c784; }
+        .log-indicator.detail { background: #ffcc80; }
 
         @media (max-width: 420px) {
             .container { padding: 16px 12px 20px; }
@@ -359,7 +396,7 @@
             .input-row { flex-wrap: wrap; }
             .input-row input { min-width: 100%; }
             .btn-group { width: 100%; }
-            .btn-group .btn { flex: 1; font-size: 11px; padding: 10px 12px; }
+            .btn-group .btn { flex: 1; font-size: 10px; padding: 8px 6px; }
             .terminal { height: 120px; font-size: 8px; }
         }
     </style>
@@ -368,11 +405,17 @@
 
 <div class="container">
     <div class="header">
-        <h1>⚡ BMS Terminal v2</h1>
+        <h1>⚡ BMS Terminal v3</h1>
         <div class="status-led">
             <span id="statusText">Putus</span>
             <span class="led" id="ledIndicator"></span>
         </div>
+    </div>
+
+    <!-- MTU INFO + LOG MODE -->
+    <div class="mtu-info">
+        📦 MTU: <span id="mtuValue">--</span> bytes | Max Data/Paket: <span id="chunkValue">--</span> bytes | Paket: <span id="packetCount">0</span>
+        &nbsp;|&nbsp; 📋 Log: <span class="log-mode" id="logModeDisplay">Normal</span>
     </div>
 
     <!-- BMS Grid Utama -->
@@ -449,14 +492,13 @@
     </div>
 
     <div class="terminal" id="terminalLog">
-        <div><span class="time">[system]</span> <span class="info">▶ BMS Terminal v2</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Mode: Kumpulkan 2 paket (128+128 byte)</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Ping 4 byte diabaikan</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ BMS Terminal v3 - Log Mode</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Klik "Log Mode" untuk ganti mode</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
     </div>
 
     <div class="input-row">
-        <input type="text" id="inputField" placeholder="Kirim HEX (pisah dengan spasi)" />
+        <input type="text" id="inputField" placeholder="Teks atau HEX (pisah spasi)" />
         <button class="btn btn-primary" id="sendBtn">🚀 Kirim</button>
     </div>
 
@@ -464,997 +506,1119 @@
         <button class="btn btn-secondary" id="scanBtn">🔍 Cari BMS</button>
         <button class="btn btn-dev" id="devInfoBtn">📱 DevInfo</button>
         <button class="btn btn-bms" id="bmsInfoBtn">🔋 BMSInfo</button>
-        <button class="btn btn-multi" id="multiSendBtn">📤 Kirim Semua</button>
+        <button class="btn btn-log" id="logModeBtn">📋 Log Mode</button>
         <button class="btn btn-reset" id="resetBtn">🔄 Reset</button>
         <button class="btn btn-danger" id="disconnectBtn">⛔ Putus</button>
     </div>
 </div>
 
 <script>
-    // ============================================================
-    // 1. ELEMEN DOM
-    // ============================================================
-    const terminalLog = document.getElementById('terminalLog');
-    const inputField = document.getElementById('inputField');
-    const sendBtn = document.getElementById('sendBtn');
-    const scanBtn = document.getElementById('scanBtn');
-    const devInfoBtn = document.getElementById('devInfoBtn');
-    const bmsInfoBtn = document.getElementById('bmsInfoBtn');
-    const disconnectBtn = document.getElementById('disconnectBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const multiSendBtn = document.getElementById('multiSendBtn');
-    const ledIndicator = document.getElementById('ledIndicator');
-    const statusText = document.getElementById('statusText');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
+// ============================================================
+// 1. ELEMEN DOM
+// ============================================================
+const terminalLog = document.getElementById('terminalLog');
+const inputField = document.getElementById('inputField');
+const sendBtn = document.getElementById('sendBtn');
+const scanBtn = document.getElementById('scanBtn');
+const devInfoBtn = document.getElementById('devInfoBtn');
+const bmsInfoBtn = document.getElementById('bmsInfoBtn');
+const disconnectBtn = document.getElementById('disconnectBtn');
+const resetBtn = document.getElementById('resetBtn');
+const logModeBtn = document.getElementById('logModeBtn');
+const ledIndicator = document.getElementById('ledIndicator');
+const statusText = document.getElementById('statusText');
+const progressContainer = document.getElementById('progressContainer');
+const progressBar = document.getElementById('progressBar');
+const mtuValue = document.getElementById('mtuValue');
+const chunkValue = document.getElementById('chunkValue');
+const packetCount = document.getElementById('packetCount');
+const logModeDisplay = document.getElementById('logModeDisplay');
 
-    // BMS Grid Utama
-    const bmsVoltage = document.getElementById('bmsVoltage');
-    const bmsCurrent = document.getElementById('bmsCurrent');
-    const bmsSoc = document.getElementById('bmsSoc');
-    const bmsCycle = document.getElementById('bmsCycle');
+// BMS Grid
+const bmsVoltage = document.getElementById('bmsVoltage');
+const bmsCurrent = document.getElementById('bmsCurrent');
+const bmsSoc = document.getElementById('bmsSoc');
+const bmsCycle = document.getElementById('bmsCycle');
 
-    // Dashboard
-    const dashMaxCell = document.getElementById('dashMaxCell');
-    const dashMinCell = document.getElementById('dashMinCell');
-    const dashDelta = document.getElementById('dashDelta');
-    const dashPower = document.getElementById('dashPower');
-    const dashMosTemp = document.getElementById('dashMosTemp');
-    const dashTemp1 = document.getElementById('dashTemp1');
-    const dashTemp2 = document.getElementById('dashTemp2');
-    const dashCapacity = document.getElementById('dashCapacity');
-    const dashActiveCells = document.getElementById('dashActiveCells');
-    const dashMaxCellNum = document.getElementById('dashMaxCellNum');
-    const dashMinCellNum = document.getElementById('dashMinCellNum');
-    const dashDeltaStatus = document.getElementById('dashDeltaStatus');
-    const dashPowerStatus = document.getElementById('dashPowerStatus');
-    const dashMosStatus = document.getElementById('dashMosStatus');
-    const dashTemp1Status = document.getElementById('dashTemp1Status');
-    const dashTemp2Status = document.getElementById('dashTemp2Status');
-    const dashCapacityPct = document.getElementById('dashCapacityPct');
-    const dashBmsType = document.getElementById('dashBmsType');
+// Dashboard
+const dashMaxCell = document.getElementById('dashMaxCell');
+const dashMinCell = document.getElementById('dashMinCell');
+const dashDelta = document.getElementById('dashDelta');
+const dashPower = document.getElementById('dashPower');
+const dashMosTemp = document.getElementById('dashMosTemp');
+const dashTemp1 = document.getElementById('dashTemp1');
+const dashTemp2 = document.getElementById('dashTemp2');
+const dashCapacity = document.getElementById('dashCapacity');
+const dashActiveCells = document.getElementById('dashActiveCells');
+const dashMaxCellNum = document.getElementById('dashMaxCellNum');
+const dashMinCellNum = document.getElementById('dashMinCellNum');
+const dashDeltaStatus = document.getElementById('dashDeltaStatus');
+const dashPowerStatus = document.getElementById('dashPowerStatus');
+const dashMosStatus = document.getElementById('dashMosStatus');
+const dashTemp1Status = document.getElementById('dashTemp1Status');
+const dashTemp2Status = document.getElementById('dashTemp2Status');
+const dashCapacityPct = document.getElementById('dashCapacityPct');
+const dashBmsType = document.getElementById('dashBmsType');
 
-    // ============================================================
-    // 2. STATE
-    // ============================================================
-    let device = null;
-    let server = null;
-    let characteristic = null;
-    let isConnected = false;
+// ============================================================
+// 2. STATE
+// ============================================================
+let device = null;
+let server = null;
+let characteristic = null;
+let isConnected = false;
 
-    // State untuk pengumpulan data baru
-    let isCollecting = false;
-    let packetCount = 0;
-    let bmsBuffer = [];
-    let dataTimer = null;
-    const COLLECTION_TIMEOUT = 3000; // 3 detik
+// State pengumpulan data
+let isCollecting = false;
+let packetCountState = 0;
+let bmsBuffer = [];
+let dataTimer = null;
+const COLLECTION_TIMEOUT = 3000;
 
-    // ============================================================
-    // 3. JK BMS PARSER (Sama seperti sebelumnya)
-    // ============================================================
-    class JKBMSParser {
-        constructor() {
-            this.offset = 0;
-            this.cells = 0;
-            this.is32S = false;
-        }
+// MTU Configuration
+let currentMTU = 128;
+const MAX_DATA_PER_PACKET = 128;
+const OVERHEAD = 3;
 
-        getUint16(data, offset) {
-            if (offset + 1 >= data.length) return 0;
-            return (data[offset + 1] << 8) | data[offset];
-        }
+// LOG MODE: 'ringkas' | 'normal' | 'detail'
+let logMode = 'normal';
+const LOG_MODES = ['ringkas', 'normal', 'detail'];
+const LOG_MODE_LABELS = {
+    'ringkas': 'Ringkas',
+    'normal': 'Normal',
+    'detail': 'Detail'
+};
 
-        getInt16(data, offset) {
-            const val = this.getUint16(data, offset);
-            return val > 0x7FFF ? val - 0x10000 : val;
-        }
-
-        getUint32(data, offset) {
-            if (offset + 3 >= data.length) return 0;
-            return (data[offset + 3] << 24) | (data[offset + 2] << 16) | (data[offset + 1] << 8) | data[offset];
-        }
-
-        getInt32(data, offset) {
-            const val = this.getUint32(data, offset);
-            return val > 0x7FFFFFFF ? val - 0x100000000 : val;
-        }
-
-        arrayToHexString(bytes) {
-            let hex = '';
-            for (let i = 0; i < bytes.length; i++) {
-                hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
-                if (i < bytes.length - 1) hex += ' ';
-            }
-            return hex;
-        }
-
-        parse(data) {
-            if (data.length < 6 || data[0] !== 0x55 || data[1] !== 0xAA || data[2] !== 0xEB || data[3] !== 0x90) {
-                throw new Error('Invalid JK BMS header');
-            }
-
-            const recordType = data[4];
-            const frameCounter = data[5];
-
-            // Cell Voltages (offset 6-69)
-            const cellVoltages = [];
-            let minVoltage = 100;
-            let maxVoltage = 0;
-            let minCellIndex = 0;
-            let maxCellIndex = 0;
-            let totalVoltage = 0;
-            let validCells = 0;
-
-            for (let i = 0; i < 32; i++) {
-                const offset = 6 + (i * 2);
-                if (offset + 1 >= data.length) break;
-                const raw = this.getUint16(data, offset);
-                const voltage = raw * 0.001;
-                
-                cellVoltages.push({ cell: i + 1, raw: raw, voltage: voltage });
-
-                if (voltage > 0.1) {
-                    totalVoltage += voltage;
-                    validCells++;
-                    if (voltage < minVoltage) {
-                        minVoltage = voltage;
-                        minCellIndex = i + 1;
-                    }
-                    if (voltage > maxVoltage) {
-                        maxVoltage = voltage;
-                        maxCellIndex = i + 1;
-                    }
-                }
-            }
-
-            // Cell Metadata (offset 70-79)
-            const enabledMask = this.getUint32(data, 70);
-            const enabledCells = [];
-            for (let i = 0; i < 32; i++) {
-                if (enabledMask & (1 << i)) {
-                    enabledCells.push(i + 1);
-                }
-            }
-            this.cells = enabledCells.length;
-
-            const avgVoltage = this.getUint16(data, 74) * 0.001;
-            const deltaVoltage = this.getUint16(data, 76) * 0.001;
-            const balancingCell1 = data[78] || 0;
-            const balancingCell2 = data[79] || 0;
-
-            // Wire Resistance (offset 80-143)
-            const cellResistances = [];
-            for (let i = 0; i < 32; i++) {
-                const offset = 80 + (i * 2);
-                if (offset + 1 >= data.length) break;
-                const raw = this.getUint16(data, offset);
-                const resistance = raw * 0.001;
-                cellResistances.push({ cell: i + 1, raw: raw, resistance: resistance });
-            }
-
-            // Pack Status (offset 144-161)
-            const mosTemp = this.getUint16(data, 144) * 0.1;
-            const wireWarningMask = this.getUint32(data, 146);
-            const totalVoltagePack = this.getUint32(data, 150) * 0.001;
-            const power = this.getInt32(data, 154);
-            const current = this.getInt32(data, 158) * 0.001;
-
-            // Temperature Sensors (offset 162-169)
-            const temp1Raw = this.getInt16(data, 162);
-            const temp1 = temp1Raw === -2000 ? null : temp1Raw * 0.1;
-            const temp2Raw = this.getInt16(data, 164);
-            const temp2 = temp2Raw === -2000 ? null : temp2Raw * 0.1;
-            const reserved1 = this.getUint16(data, 166);
-            const mosTempAlt = this.getUint16(data, 168) * 0.5;
-
-            // SOC & Capacity (offset 170-185)
-            const soc = data[173] || 0;
-            const capacityRemain = this.getUint32(data, 174);
-            const capacityNominal = this.getUint32(data, 178);
-            const cycleCount = this.getUint32(data, 182);
-
-            // Data sisa (offset 186-255) - hanya untuk 256 byte data
-            const remainingData = data.slice(186);
-            const remainingHex = this.arrayToHexString(remainingData);
-
-            // Deteksi battery type
-            let batteryType = 'Unknown';
-            if (data.length > 243) {
-                const typeCode = data[243] || 0;
-                if (typeCode === 0) batteryType = 'LFP';
-                else if (typeCode === 1) batteryType = 'NMC';
-                else if (typeCode === 2) batteryType = 'LTO';
-            }
-
-            const result = {
-                header: {
-                    recordType: recordType,
-                    frameCounter: frameCounter,
-                    totalCells: this.cells,
-                    enabledCells: enabledCells,
-                    enabledMask: enabledMask,
-                    dataLength: data.length,
-                    hasTerminator: false // Tidak ada terminator di 256 byte
-                },
-                cellVoltages: cellVoltages,
-                cellResistances: cellResistances,
-                temperatures: [],
-                status: {
-                    totalVoltage: totalVoltagePack,
-                    current: current,
-                    power: power,
-                    soc: soc,
-                    capacityRemain: capacityRemain / 1000,
-                    capacityNominal: capacityNominal / 1000,
-                    cycleCount: cycleCount,
-                    mosTemp: mosTemp,
-                    mosTempAlt: mosTempAlt,
-                    avgCellVoltage: avgVoltage,
-                    deltaVoltage: deltaVoltage,
-                    balancingCell1: balancingCell1,
-                    balancingCell2: balancingCell2,
-                    wireWarningMask: wireWarningMask,
-                    temp1: temp1,
-                    temp2: temp2,
-                    reserved1: reserved1,
-                    batteryType: batteryType,
-                    chargingMOS: false,
-                    dischargingMOS: false,
-                    balancing: false,
-                    balancingCells: [],
-                    minCellVoltage: minVoltage === 100 ? 0 : minVoltage,
-                    maxCellVoltage: maxVoltage,
-                    minCellIndex: minCellIndex,
-                    maxCellIndex: maxCellIndex,
-                    validCells: validCells
-                },
-                statistics: {
-                    minCellVoltage: minVoltage === 100 ? 0 : minVoltage,
-                    maxCellVoltage: maxVoltage,
-                    averageCellVoltage: validCells > 0 ? totalVoltage / validCells : 0,
-                    deltaVoltage: deltaVoltage,
-                    validCells: validCells,
-                    minCellIndex: minCellIndex,
-                    maxCellIndex: maxCellIndex
-                },
-                raw: {
-                    remainingData: remainingHex,
-                    enabledMaskHex: '0x' + enabledMask.toString(16).toUpperCase()
-                }
-            };
-
-            // Temperatures
-            if (mosTemp !== null && mosTemp > -50 && mosTemp < 150) {
-                result.temperatures.push({ sensor: 'MOS', temp: mosTemp });
-            }
-            if (temp1 !== null && temp1 > -50 && temp1 < 150) {
-                result.temperatures.push({ sensor: 'Temp1', temp: temp1 });
-            }
-            if (temp2 !== null && temp2 > -50 && temp2 < 150) {
-                result.temperatures.push({ sensor: 'Temp2', temp: temp2 });
-            }
-
-            // Charging/Discharging status
-            if (current > 0.1) {
-                result.status.chargingMOS = true;
-                result.status.dischargingMOS = false;
-                result.status.chargingPower = current * totalVoltagePack;
-                result.status.dischargingPower = 0;
-                result.status.powerStatus = 'Charging';
-            } else if (current < -0.1) {
-                result.status.chargingMOS = false;
-                result.status.dischargingMOS = true;
-                result.status.chargingPower = 0;
-                result.status.dischargingPower = Math.abs(current) * totalVoltagePack;
-                result.status.powerStatus = 'Discharging';
-            } else {
-                result.status.chargingMOS = false;
-                result.status.dischargingMOS = false;
-                result.status.chargingPower = 0;
-                result.status.dischargingPower = 0;
-                result.status.powerStatus = 'Idle';
-            }
-
-            // Balance status
-            result.status.balancing = (balancingCell1 > 0 || balancingCell2 > 0);
-            if (balancingCell1 > 0) result.status.balancingCells.push(balancingCell1);
-            if (balancingCell2 > 0) result.status.balancingCells.push(balancingCell2);
-
-            return result;
-        }
-
-        formatOutput(result) {
-            let lines = [];
-            const s = result.status;
-            const h = result.header;
-            
-            lines.push(`📊 JK BMS | ${h.totalCells} Cells (${h.enabledMask > 0xFFFFFF ? '32S' : '24S'})`);
-            lines.push(`⚡ Voltage: ${s.totalVoltage.toFixed(3)}V | Current: ${s.current.toFixed(2)}A`);
-            lines.push(`🔋 SOC: ${s.soc}% | Cycle: ${s.cycleCount}x`);
-            lines.push(`📦 Capacity: ${s.capacityRemain.toFixed(2)}/${s.capacityNominal.toFixed(2)}Ah`);
-            
-            if (s.mosTemp !== null && s.mosTemp > -50 && s.mosTemp < 150) {
-                lines.push(`🌡️ MOS Temp: ${s.mosTemp.toFixed(1)}°C`);
-            }
-            if (s.temp1 !== null && s.temp1 > -50 && s.temp1 < 150) {
-                lines.push(`🌡️ Temp1: ${s.temp1.toFixed(1)}°C`);
-            }
-            if (s.temp2 !== null && s.temp2 > -50 && s.temp2 < 150) {
-                lines.push(`🌡️ Temp2: ${s.temp2.toFixed(1)}°C`);
-            }
-            
-            lines.push(`📊 Avg Cell: ${s.avgCellVoltage.toFixed(3)}V | Delta: ${s.deltaVoltage.toFixed(3)}V`);
-            lines.push(`📈 Min: ${s.minCellVoltage.toFixed(3)}V (Cell ${s.minCellIndex}) | Max: ${s.maxCellVoltage.toFixed(3)}V (Cell ${s.maxCellIndex})`);
-            
-            if (s.balancing) {
-                lines.push(`⚖️ Balancing: ON (Cells: ${s.balancingCells.join(', ')})`);
-            } else {
-                lines.push(`⚖️ Balancing: OFF`);
-            }
-            
-            if (s.powerStatus === 'Charging') {
-                lines.push(`⚡ Charging: ${s.chargingPower.toFixed(1)}W`);
-            } else if (s.powerStatus === 'Discharging') {
-                lines.push(`🔋 Discharging: ${s.dischargingPower.toFixed(1)}W`);
-            } else {
-                lines.push(`💤 Idle`);
-            }
-            
-            if (s.batteryType && s.batteryType !== 'Unknown') {
-                lines.push(`🔋 Battery: ${s.batteryType}`);
-            }
-            
-            // Preview cell voltages
-            const cellPreview = result.cellVoltages
-                .slice(0, Math.min(8, h.totalCells))
-                .map(c => `${c.cell}:${c.voltage.toFixed(3)}V`)
-                .join(', ');
-            lines.push(`🔋 Cells: ${cellPreview}${h.totalCells > 8 ? ' ...' : ''}`);
-            
-            return lines;
-        }
+// ============================================================
+// 3. JK BMS PARSER
+// ============================================================
+class JKBMSParser {
+    constructor() {
+        this.offset = 0;
+        this.cells = 0;
+        this.is32S = false;
     }
 
-    // ============================================================
-    // 4. FUNGSI LOG TERMINAL
-    // ============================================================
-    function logTerminal(message, type = 'info') {
-        const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
-        const entry = document.createElement('div');
-        
-        const typeMap = {
-            'hex_rx': `<span class="time">[${time}]</span> <span class="hex">📥 ${message}</span>`,
-            'hex_tx': `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`,
-            'hex_dev': `<span class="time">[${time}]</span> <span class="hex-dev">📱 DEV: ${message}</span>`,
-            'hex_bms': `<span class="time">[${time}]</span> <span class="hex-bms">🔋 BMS: ${message}</span>`,
-            'tx': `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`,
-            'success': `<span class="time">[${time}]</span> <span class="success">✅ ${message}</span>`,
-            'error': `<span class="time">[${time}]</span> <span class="error">❌ ${message}</span>`,
-            'warning': `<span class="time">[${time}]</span> <span class="warning">⚠️ ${message}</span>`,
-            'progress': `<span class="time">[${time}]</span> <span class="progress">⏳ ${message}</span>`,
-            'packet': `<span class="time">[${time}]</span> <span class="packet-info">📦 ${message}</span>`,
-            'ping': `<span class="time">[${time}]</span> <span class="ping">📶 ${message}</span>`,
-            'header': `<span class="time">[${time}]</span> <span class="header-info">🔰 ${message}</span>`,
-            'raw': `<span class="time">[${time}]</span> <span class="raw-data">📄 ${message}</span>`,
-            'terminator': `<span class="time">[${time}]</span> <span class="terminator">⛔ ${message}</span>`,
-            'data': `<span class="time">[${time}]</span> <span class="data">${message}</span>`,
-            'cell': `<span class="time">[${time}]</span> <span class="cell-data">🔋 ${message}</span>`,
-            'temp': `<span class="time">[${time}]</span> <span class="temp-data">🌡️ ${message}</span>`,
-            'stat': `<span class="time">[${time}]</span> <span class="stat-data">📊 ${message}</span>`,
+    getUint16(data, offset) {
+        if (offset + 1 >= data.length) return 0;
+        return (data[offset + 1] << 8) | data[offset];
+    }
+
+    getInt16(data, offset) {
+        const val = this.getUint16(data, offset);
+        return val > 0x7FFF ? val - 0x10000 : val;
+    }
+
+    getUint32(data, offset) {
+        if (offset + 3 >= data.length) return 0;
+        return (data[offset + 3] << 24) | (data[offset + 2] << 16) | (data[offset + 1] << 8) | data[offset];
+    }
+
+    getInt32(data, offset) {
+        const val = this.getUint32(data, offset);
+        return val > 0x7FFFFFFF ? val - 0x100000000 : val;
+    }
+
+    arrayToHexString(bytes) {
+        let hex = '';
+        for (let i = 0; i < bytes.length; i++) {
+            hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
+            if (i < bytes.length - 1) hex += ' ';
+        }
+        return hex;
+    }
+
+    parse(data) {
+        if (data.length < 6 || data[0] !== 0x55 || data[1] !== 0xAA || data[2] !== 0xEB || data[3] !== 0x90) {
+            throw new Error('Invalid JK BMS header');
+        }
+
+        const recordType = data[4];
+        const frameCounter = data[5];
+
+        const cellVoltages = [];
+        let minVoltage = 100;
+        let maxVoltage = 0;
+        let minCellIndex = 0;
+        let maxCellIndex = 0;
+        let totalVoltage = 0;
+        let validCells = 0;
+
+        for (let i = 0; i < 32; i++) {
+            const offset = 6 + (i * 2);
+            if (offset + 1 >= data.length) break;
+            const raw = this.getUint16(data, offset);
+            const voltage = raw * 0.001;
+            
+            cellVoltages.push({ cell: i + 1, raw: raw, voltage: voltage });
+
+            if (voltage > 0.1) {
+                totalVoltage += voltage;
+                validCells++;
+                if (voltage < minVoltage) {
+                    minVoltage = voltage;
+                    minCellIndex = i + 1;
+                }
+                if (voltage > maxVoltage) {
+                    maxVoltage = voltage;
+                    maxCellIndex = i + 1;
+                }
+            }
+        }
+
+        const enabledMask = this.getUint32(data, 70);
+        const enabledCells = [];
+        for (let i = 0; i < 32; i++) {
+            if (enabledMask & (1 << i)) {
+                enabledCells.push(i + 1);
+            }
+        }
+        this.cells = enabledCells.length;
+
+        const avgVoltage = this.getUint16(data, 74) * 0.001;
+        const deltaVoltage = this.getUint16(data, 76) * 0.001;
+        const balancingCell1 = data[78] || 0;
+        const balancingCell2 = data[79] || 0;
+
+        const cellResistances = [];
+        for (let i = 0; i < 32; i++) {
+            const offset = 80 + (i * 2);
+            if (offset + 1 >= data.length) break;
+            const raw = this.getUint16(data, offset);
+            const resistance = raw * 0.001;
+            cellResistances.push({ cell: i + 1, raw: raw, resistance: resistance });
+        }
+
+        const mosTemp = this.getUint16(data, 144) * 0.1;
+        const wireWarningMask = this.getUint32(data, 146);
+        const totalVoltagePack = this.getUint32(data, 150) * 0.001;
+        const power = this.getInt32(data, 154);
+        const current = this.getInt32(data, 158) * 0.001;
+
+        const temp1Raw = this.getInt16(data, 162);
+        const temp1 = temp1Raw === -2000 ? null : temp1Raw * 0.1;
+        const temp2Raw = this.getInt16(data, 164);
+        const temp2 = temp2Raw === -2000 ? null : temp2Raw * 0.1;
+        const reserved1 = this.getUint16(data, 166);
+        const mosTempAlt = this.getUint16(data, 168) * 0.5;
+
+        const soc = data[173] || 0;
+        const capacityRemain = this.getUint32(data, 174);
+        const capacityNominal = this.getUint32(data, 178);
+        const cycleCount = this.getUint32(data, 182);
+
+        const remainingData = data.slice(186);
+        const remainingHex = this.arrayToHexString(remainingData);
+
+        let batteryType = 'Unknown';
+        if (data.length > 243) {
+            const typeCode = data[243] || 0;
+            if (typeCode === 0) batteryType = 'LFP';
+            else if (typeCode === 1) batteryType = 'NMC';
+            else if (typeCode === 2) batteryType = 'LTO';
+        }
+
+        const result = {
+            header: {
+                recordType: recordType,
+                frameCounter: frameCounter,
+                totalCells: this.cells,
+                enabledCells: enabledCells,
+                enabledMask: enabledMask,
+                dataLength: data.length,
+                hasTerminator: false
+            },
+            cellVoltages: cellVoltages,
+            cellResistances: cellResistances,
+            temperatures: [],
+            status: {
+                totalVoltage: totalVoltagePack,
+                current: current,
+                power: power,
+                soc: soc,
+                capacityRemain: capacityRemain / 1000,
+                capacityNominal: capacityNominal / 1000,
+                cycleCount: cycleCount,
+                mosTemp: mosTemp,
+                mosTempAlt: mosTempAlt,
+                avgCellVoltage: avgVoltage,
+                deltaVoltage: deltaVoltage,
+                balancingCell1: balancingCell1,
+                balancingCell2: balancingCell2,
+                wireWarningMask: wireWarningMask,
+                temp1: temp1,
+                temp2: temp2,
+                reserved1: reserved1,
+                batteryType: batteryType,
+                chargingMOS: false,
+                dischargingMOS: false,
+                balancing: false,
+                balancingCells: [],
+                minCellVoltage: minVoltage === 100 ? 0 : minVoltage,
+                maxCellVoltage: maxVoltage,
+                minCellIndex: minCellIndex,
+                maxCellIndex: maxCellIndex,
+                validCells: validCells
+            },
+            statistics: {
+                minCellVoltage: minVoltage === 100 ? 0 : minVoltage,
+                maxCellVoltage: maxVoltage,
+                averageCellVoltage: validCells > 0 ? totalVoltage / validCells : 0,
+                deltaVoltage: deltaVoltage,
+                validCells: validCells,
+                minCellIndex: minCellIndex,
+                maxCellIndex: maxCellIndex
+            },
+            raw: {
+                remainingData: remainingHex,
+                enabledMaskHex: '0x' + enabledMask.toString(16).toUpperCase()
+            }
         };
-        
-        entry.innerHTML = typeMap[type] || `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
-        
-        terminalLog.appendChild(entry);
-        terminalLog.scrollTop = terminalLog.scrollHeight;
-        if (terminalLog.children.length > 500) {
-            terminalLog.removeChild(terminalLog.children[0]);
+
+        if (mosTemp !== null && mosTemp > -50 && mosTemp < 150) {
+            result.temperatures.push({ sensor: 'MOS', temp: mosTemp });
         }
+        if (temp1 !== null && temp1 > -50 && temp1 < 150) {
+            result.temperatures.push({ sensor: 'Temp1', temp: temp1 });
+        }
+        if (temp2 !== null && temp2 > -50 && temp2 < 150) {
+            result.temperatures.push({ sensor: 'Temp2', temp: temp2 });
+        }
+
+        if (current > 0.1) {
+            result.status.chargingMOS = true;
+            result.status.dischargingMOS = false;
+            result.status.chargingPower = current * totalVoltagePack;
+            result.status.dischargingPower = 0;
+            result.status.powerStatus = 'Charging';
+        } else if (current < -0.1) {
+            result.status.chargingMOS = false;
+            result.status.dischargingMOS = true;
+            result.status.chargingPower = 0;
+            result.status.dischargingPower = Math.abs(current) * totalVoltagePack;
+            result.status.powerStatus = 'Discharging';
+        } else {
+            result.status.chargingMOS = false;
+            result.status.dischargingMOS = false;
+            result.status.chargingPower = 0;
+            result.status.dischargingPower = 0;
+            result.status.powerStatus = 'Idle';
+        }
+
+        result.status.balancing = (balancingCell1 > 0 || balancingCell2 > 0);
+        if (balancingCell1 > 0) result.status.balancingCells.push(balancingCell1);
+        if (balancingCell2 > 0) result.status.balancingCells.push(balancingCell2);
+
+        return result;
     }
 
-    // ============================================================
-    // 5. KONVERSI DATA
-    // ============================================================
-    function toHexString(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let hex = '';
-        for (let i = 0; i < bytes.length; i++) {
-            hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
-            if (i < bytes.length - 1) hex += ' ';
-        }
-        return hex;
-    }
-
-    function arrayToHexString(bytes) {
-        let hex = '';
-        for (let i = 0; i < bytes.length; i++) {
-            hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
-            if (i < bytes.length - 1) hex += ' ';
-        }
-        return hex;
-    }
-
-    function hexStringToBytes(hexString) {
-        const cleanHex = hexString.replace(/\s/g, '');
-        const bytes = [];
-        for (let i = 0; i < cleanHex.length; i += 2) {
-            bytes.push(parseInt(cleanHex.substr(i, 2), 16));
-        }
-        return bytes;
-    }
-
-    // ============================================================
-    // 6. UPDATE UI BMS & DASHBOARD
-    // ============================================================
-    function updateAllUI(result) {
+    formatOutput(result) {
+        let lines = [];
         const s = result.status;
-        const stat = result.statistics;
+        const h = result.header;
         
-        // BMS Grid Utama
-        if (s.totalVoltage !== undefined && !isNaN(s.totalVoltage) && s.totalVoltage > 0) {
-            bmsVoltage.textContent = s.totalVoltage.toFixed(2);
+        lines.push(`📊 JK BMS | ${h.totalCells} Cells`);
+        lines.push(`⚡ Voltage: ${s.totalVoltage.toFixed(3)}V | Current: ${s.current.toFixed(2)}A`);
+        lines.push(`🔋 SOC: ${s.soc}% | Cycle: ${s.cycleCount}x`);
+        lines.push(`📦 Capacity: ${s.capacityRemain.toFixed(2)}/${s.capacityNominal.toFixed(2)}Ah`);
+        
+        if (s.mosTemp !== null && s.mosTemp > -50 && s.mosTemp < 150) {
+            lines.push(`🌡️ MOS Temp: ${s.mosTemp.toFixed(1)}°C`);
         }
-        if (s.current !== undefined && !isNaN(s.current)) {
-            bmsCurrent.textContent = s.current.toFixed(2);
+        if (s.temp1 !== null && s.temp1 > -50 && s.temp1 < 150) {
+            lines.push(`🌡️ Temp1: ${s.temp1.toFixed(1)}°C`);
         }
-        if (s.soc !== undefined && !isNaN(s.soc) && s.soc >= 0 && s.soc <= 100) {
-            bmsSoc.textContent = s.soc.toFixed(1);
+        if (s.temp2 !== null && s.temp2 > -50 && s.temp2 < 150) {
+            lines.push(`🌡️ Temp2: ${s.temp2.toFixed(1)}°C`);
         }
-        if (s.cycleCount !== undefined && !isNaN(s.cycleCount)) {
-            bmsCycle.textContent = s.cycleCount;
-        }
-
-        // Dashboard - Max Cell
-        if (stat.maxCellVoltage > 0) {
-            dashMaxCell.textContent = stat.maxCellVoltage.toFixed(3);
-            dashMaxCellNum.textContent = `Cell #${stat.maxCellIndex}`;
-        }
-
-        // Dashboard - Min Cell
-        if (stat.minCellVoltage > 0) {
-            dashMinCell.textContent = stat.minCellVoltage.toFixed(3);
-            dashMinCellNum.textContent = `Cell #${stat.minCellIndex}`;
-        }
-
-        // Dashboard - Delta V (dalam mV)
-        if (s.deltaVoltage !== undefined && !isNaN(s.deltaVoltage)) {
-            const deltaMv = s.deltaVoltage * 1000;
-            dashDelta.textContent = deltaMv.toFixed(1);
-            if (deltaMv < 10) {
-                dashDeltaStatus.textContent = '✅ Seimbang';
-                dashDeltaStatus.style.color = '#6fcf97';
-            } else if (deltaMv < 30) {
-                dashDeltaStatus.textContent = '⚠️ Cukup';
-                dashDeltaStatus.style.color = '#ffab40';
-            } else {
-                dashDeltaStatus.textContent = '❌ Tidak Seimbang';
-                dashDeltaStatus.style.color = '#ff6b6b';
-            }
-        }
-
-        // Dashboard - Power
-        if (s.power !== undefined && !isNaN(s.power)) {
-            dashPower.textContent = Math.abs(s.power).toFixed(1);
-            dashPowerStatus.textContent = s.powerStatus || 'Idle';
-            if (s.powerStatus === 'Charging') {
-                dashPowerStatus.style.color = '#6fcf97';
-            } else if (s.powerStatus === 'Discharging') {
-                dashPowerStatus.style.color = '#ffab40';
-            } else {
-                dashPowerStatus.style.color = '#4a6a8a';
-            }
-        }
-
-        // Dashboard - MOSFET Temp
-        if (s.mosTemp !== undefined && s.mosTemp !== null && s.mosTemp > -50 && s.mosTemp < 150) {
-            dashMosTemp.textContent = s.mosTemp.toFixed(1);
-            if (s.mosTemp < 50) {
-                dashMosStatus.textContent = '✅ Normal';
-                dashMosStatus.style.color = '#6fcf97';
-            } else if (s.mosTemp < 70) {
-                dashMosStatus.textContent = '⚠️ Hangat';
-                dashMosStatus.style.color = '#ffab40';
-            } else {
-                dashMosStatus.textContent = '❌ Panas!';
-                dashMosStatus.style.color = '#ff6b6b';
-            }
-        }
-
-        // Dashboard - Temp 1
-        if (s.temp1 !== undefined && s.temp1 !== null && s.temp1 > -50 && s.temp1 < 150) {
-            dashTemp1.textContent = s.temp1.toFixed(1);
-            dashTemp1Status.textContent = '✅ Terpasang';
-            dashTemp1Status.style.color = '#6fcf97';
+        
+        lines.push(`📊 Avg Cell: ${s.avgCellVoltage.toFixed(3)}V | Delta: ${s.deltaVoltage.toFixed(3)}V`);
+        lines.push(`📈 Min: ${s.minCellVoltage.toFixed(3)}V (Cell ${s.minCellIndex}) | Max: ${s.maxCellVoltage.toFixed(3)}V (Cell ${s.maxCellIndex})`);
+        
+        if (s.balancing) {
+            lines.push(`⚖️ Balancing: ON (Cells: ${s.balancingCells.join(', ')})`);
         } else {
-            dashTemp1.textContent = '--';
-            dashTemp1Status.textContent = '⛔ Tidak ada';
-            dashTemp1Status.style.color = '#4a6a8a';
+            lines.push(`⚖️ Balancing: OFF`);
         }
-
-        // Dashboard - Temp 2
-        if (s.temp2 !== undefined && s.temp2 !== null && s.temp2 > -50 && s.temp2 < 150) {
-            dashTemp2.textContent = s.temp2.toFixed(1);
-            dashTemp2Status.textContent = '✅ Terpasang';
-            dashTemp2Status.style.color = '#6fcf97';
+        
+        if (s.powerStatus === 'Charging') {
+            lines.push(`⚡ Charging: ${s.chargingPower.toFixed(1)}W`);
+        } else if (s.powerStatus === 'Discharging') {
+            lines.push(`🔋 Discharging: ${s.dischargingPower.toFixed(1)}W`);
         } else {
-            dashTemp2.textContent = '--';
-            dashTemp2Status.textContent = '⛔ Tidak ada';
-            dashTemp2Status.style.color = '#4a6a8a';
+            lines.push(`💤 Idle`);
         }
-
-        // Dashboard - Capacity
-        if (s.capacityRemain !== undefined && s.capacityNominal !== undefined) {
-            dashCapacity.textContent = s.capacityRemain.toFixed(2);
-            const pct = (s.capacityRemain / s.capacityNominal * 100);
-            dashCapacityPct.textContent = `${pct.toFixed(1)}% From ${s.capacityNominal.toFixed(1)}Ah`;
+        
+        if (s.batteryType && s.batteryType !== 'Unknown') {
+            lines.push(`🔋 Battery: ${s.batteryType}`);
         }
+        
+        const cellPreview = result.cellVoltages
+            .slice(0, Math.min(8, h.totalCells))
+            .map(c => `${c.cell}:${c.voltage.toFixed(3)}V`)
+            .join(', ');
+        lines.push(`🔋 Cells: ${cellPreview}${h.totalCells > 8 ? ' ...' : ''}`);
+        
+        return lines;
+    }
+}
 
-        // Dashboard - Active Cells
-        if (result.header.totalCells !== undefined) {
-            dashActiveCells.textContent = result.header.totalCells;
-            dashBmsType.textContent = 'Cell' || 'Unknown';
+// ============================================================
+// 4. FUNGSI LOG TERMINAL DENGAN MODE
+// ============================================================
+function logTerminal(message, type = 'info', forceShow = false) {
+    // Filter berdasarkan mode
+    if (!forceShow) {
+        if (logMode === 'ringkas') {
+            // Ringkas: hanya tampilkan hasil parsing dan error
+            const allowedTypes = ['success', 'error', 'stat', 'data'];
+            if (!allowedTypes.includes(type) && !type.includes('success') && !type.includes('error')) {
+                return;
+            }
+            // Di ringkas, tampilkan ringkasan data
+            if (type === 'stat' || type === 'data') {
+                // Tampilkan hanya data penting
+            }
+        } else if (logMode === 'normal') {
+            // Normal: tampilkan semua kecuali raw data dan ping
+            if (type === 'raw' || type === 'ping' || type === 'hex_rx') {
+                return;
+            }
+        }
+        // Detail: tampilkan semua
+    }
+
+    const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
+    const entry = document.createElement('div');
+    
+    const typeMap = {
+        'hex_rx': `<span class="time">[${time}]</span> <span class="hex">📥 ${message}</span>`,
+        'hex_tx': `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`,
+        'hex_dev': `<span class="time">[${time}]</span> <span class="hex-dev">📱 DEV: ${message}</span>`,
+        'hex_bms': `<span class="time">[${time}]</span> <span class="hex-bms">🔋 BMS: ${message}</span>`,
+        'tx': `<span class="time">[${time}]</span> <span class="hex">📤 ${message}</span>`,
+        'success': `<span class="time">[${time}]</span> <span class="success">✅ ${message}</span>`,
+        'error': `<span class="time">[${time}]</span> <span class="error">❌ ${message}</span>`,
+        'warning': `<span class="time">[${time}]</span> <span class="warning">⚠️ ${message}</span>`,
+        'progress': `<span class="time">[${time}]</span> <span class="progress">⏳ ${message}</span>`,
+        'packet': `<span class="time">[${time}]</span> <span class="packet-info">📦 ${message}</span>`,
+        'ping': `<span class="time">[${time}]</span> <span class="ping">📶 ${message}</span>`,
+        'header': `<span class="time">[${time}]</span> <span class="header-info">🔰 ${message}</span>`,
+        'raw': `<span class="time">[${time}]</span> <span class="raw-data">📄 ${message}</span>`,
+        'terminator': `<span class="time">[${time}]</span> <span class="terminator">⛔ ${message}</span>`,
+        'data': `<span class="time">[${time}]</span> <span class="data">${message}</span>`,
+        'cell': `<span class="time">[${time}]</span> <span class="cell-data">🔋 ${message}</span>`,
+        'temp': `<span class="time">[${time}]</span> <span class="temp-data">🌡️ ${message}</span>`,
+        'stat': `<span class="time">[${time}]</span> <span class="stat-data">📊 ${message}</span>`,
+        'log-ringkas': `<span class="time">[${time}]</span> <span class="log-ringkas">📋 ${message}</span>`,
+        'log-normal': `<span class="time">[${time}]</span> <span class="log-normal">📋 ${message}</span>`,
+        'log-detail': `<span class="time">[${time}]</span> <span class="log-detail">📋 ${message}</span>`,
+    };
+    
+    entry.innerHTML = typeMap[type] || `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
+    
+    terminalLog.appendChild(entry);
+    terminalLog.scrollTop = terminalLog.scrollHeight;
+    if (terminalLog.children.length > 500) {
+        terminalLog.removeChild(terminalLog.children[0]);
+    }
+}
+
+// ============================================================
+// 5. KONVERSI DATA
+// ============================================================
+function toHexString(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
+        if (i < bytes.length - 1) hex += ' ';
+    }
+    return hex;
+}
+
+function arrayToHexString(bytes) {
+    let hex = '';
+    for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
+        if (i < bytes.length - 1) hex += ' ';
+    }
+    return hex;
+}
+
+function hexStringToBytes(hexString) {
+    const cleanHex = hexString.replace(/\s/g, '');
+    const bytes = [];
+    for (let i = 0; i < cleanHex.length; i += 2) {
+        bytes.push(parseInt(cleanHex.substr(i, 2), 16));
+    }
+    return bytes;
+}
+
+function textToBytes(text) {
+    const encoder = new TextEncoder();
+    return encoder.encode(text);
+}
+
+// ============================================================
+// 6. UPDATE UI
+// ============================================================
+function updateAllUI(result) {
+    const s = result.status;
+    const stat = result.statistics;
+    
+    if (s.totalVoltage !== undefined && !isNaN(s.totalVoltage) && s.totalVoltage > 0) {
+        bmsVoltage.textContent = s.totalVoltage.toFixed(2);
+    }
+    if (s.current !== undefined && !isNaN(s.current)) {
+        bmsCurrent.textContent = s.current.toFixed(2);
+    }
+    if (s.soc !== undefined && !isNaN(s.soc) && s.soc >= 0 && s.soc <= 100) {
+        bmsSoc.textContent = s.soc.toFixed(1);
+    }
+    if (s.cycleCount !== undefined && !isNaN(s.cycleCount)) {
+        bmsCycle.textContent = s.cycleCount;
+    }
+
+    if (stat.maxCellVoltage > 0) {
+        dashMaxCell.textContent = stat.maxCellVoltage.toFixed(3);
+        dashMaxCellNum.textContent = `Cell #${stat.maxCellIndex}`;
+    }
+
+    if (stat.minCellVoltage > 0) {
+        dashMinCell.textContent = stat.minCellVoltage.toFixed(3);
+        dashMinCellNum.textContent = `Cell #${stat.minCellIndex}`;
+    }
+
+    if (s.deltaVoltage !== undefined && !isNaN(s.deltaVoltage)) {
+        const deltaMv = s.deltaVoltage * 1000;
+        dashDelta.textContent = deltaMv.toFixed(1);
+        if (deltaMv < 10) {
+            dashDeltaStatus.textContent = '✅ Seimbang';
+            dashDeltaStatus.style.color = '#6fcf97';
+        } else if (deltaMv < 30) {
+            dashDeltaStatus.textContent = '⚠️ Cukup';
+            dashDeltaStatus.style.color = '#ffab40';
+        } else {
+            dashDeltaStatus.textContent = '❌ Tidak Seimbang';
+            dashDeltaStatus.style.color = '#ff6b6b';
         }
     }
 
-    function resetAllUI() {
-        bmsVoltage.textContent = '--';
-        bmsCurrent.textContent = '--';
-        bmsSoc.textContent = '--';
-        bmsCycle.textContent = '--';
-        dashMaxCell.textContent = '--';
-        dashMinCell.textContent = '--';
-        dashDelta.textContent = '--';
-        dashPower.textContent = '--';
-        dashMosTemp.textContent = '--';
+    if (s.power !== undefined && !isNaN(s.power)) {
+        dashPower.textContent = Math.abs(s.power).toFixed(1);
+        dashPowerStatus.textContent = s.powerStatus || 'Idle';
+        if (s.powerStatus === 'Charging') {
+            dashPowerStatus.style.color = '#6fcf97';
+        } else if (s.powerStatus === 'Discharging') {
+            dashPowerStatus.style.color = '#ffab40';
+        } else {
+            dashPowerStatus.style.color = '#4a6a8a';
+        }
+    }
+
+    if (s.mosTemp !== undefined && s.mosTemp !== null && s.mosTemp > -50 && s.mosTemp < 150) {
+        dashMosTemp.textContent = s.mosTemp.toFixed(1);
+        if (s.mosTemp < 50) {
+            dashMosStatus.textContent = '✅ Normal';
+            dashMosStatus.style.color = '#6fcf97';
+        } else if (s.mosTemp < 70) {
+            dashMosStatus.textContent = '⚠️ Hangat';
+            dashMosStatus.style.color = '#ffab40';
+        } else {
+            dashMosStatus.textContent = '❌ Panas!';
+            dashMosStatus.style.color = '#ff6b6b';
+        }
+    }
+
+    if (s.temp1 !== undefined && s.temp1 !== null && s.temp1 > -50 && s.temp1 < 150) {
+        dashTemp1.textContent = s.temp1.toFixed(1);
+        dashTemp1Status.textContent = '✅ Terpasang';
+        dashTemp1Status.style.color = '#6fcf97';
+    } else {
         dashTemp1.textContent = '--';
+        dashTemp1Status.textContent = '⛔ Tidak ada';
+        dashTemp1Status.style.color = '#4a6a8a';
+    }
+
+    if (s.temp2 !== undefined && s.temp2 !== null && s.temp2 > -50 && s.temp2 < 150) {
+        dashTemp2.textContent = s.temp2.toFixed(1);
+        dashTemp2Status.textContent = '✅ Terpasang';
+        dashTemp2Status.style.color = '#6fcf97';
+    } else {
         dashTemp2.textContent = '--';
-        dashCapacity.textContent = '--';
-        dashActiveCells.textContent = '--';
-        dashMaxCellNum.textContent = 'Cell #--';
-        dashMinCellNum.textContent = 'Cell #--';
-        dashDeltaStatus.textContent = '--';
-        dashPowerStatus.textContent = 'Idle';
-        dashMosStatus.textContent = '--';
-        dashTemp1Status.textContent = '--';
-        dashTemp2Status.textContent = '--';
-        dashCapacityPct.textContent = '--';
-        dashBmsType.textContent = '--';
+        dashTemp2Status.textContent = '⛔ Tidak ada';
+        dashTemp2Status.style.color = '#4a6a8a';
     }
 
-    // ============================================================
-    // 7. UPDATE PROGRESS
-    // ============================================================
-    function updateProgress(percent) {
-        progressContainer.classList.add('active');
-        progressBar.style.width = percent + '%';
-        if (percent >= 100) {
-            setTimeout(() => {
-                progressContainer.classList.remove('active');
-                progressBar.style.width = '0%';
-            }, 500);
+    if (s.capacityRemain !== undefined && s.capacityNominal !== undefined) {
+        dashCapacity.textContent = s.capacityRemain.toFixed(2);
+        const pct = (s.capacityRemain / s.capacityNominal * 100);
+        dashCapacityPct.textContent = `${pct.toFixed(1)}% From ${s.capacityNominal.toFixed(1)}Ah`;
+    }
+
+    if (result.header.totalCells !== undefined) {
+        dashActiveCells.textContent = result.header.totalCells;
+        dashBmsType.textContent = 'Cell' || 'Unknown';
+    }
+}
+
+function resetAllUI() {
+    bmsVoltage.textContent = '--';
+    bmsCurrent.textContent = '--';
+    bmsSoc.textContent = '--';
+    bmsCycle.textContent = '--';
+    dashMaxCell.textContent = '--';
+    dashMinCell.textContent = '--';
+    dashDelta.textContent = '--';
+    dashPower.textContent = '--';
+    dashMosTemp.textContent = '--';
+    dashTemp1.textContent = '--';
+    dashTemp2.textContent = '--';
+    dashCapacity.textContent = '--';
+    dashActiveCells.textContent = '--';
+    dashMaxCellNum.textContent = 'Cell #--';
+    dashMinCellNum.textContent = 'Cell #--';
+    dashDeltaStatus.textContent = '--';
+    dashPowerStatus.textContent = 'Idle';
+    dashMosStatus.textContent = '--';
+    dashTemp1Status.textContent = '--';
+    dashTemp2Status.textContent = '--';
+    dashCapacityPct.textContent = '--';
+    dashBmsType.textContent = '--';
+}
+
+// ============================================================
+// 7. UPDATE PROGRESS & MTU INFO
+// ============================================================
+function updateProgress(percent) {
+    progressContainer.classList.add('active');
+    progressBar.style.width = percent + '%';
+    if (percent >= 100) {
+        setTimeout(() => {
+            progressContainer.classList.remove('active');
+            progressBar.style.width = '0%';
+        }, 500);
+    }
+}
+
+function updateMTUInfo(packets = 0) {
+    mtuValue.textContent = currentMTU;
+    chunkValue.textContent = MAX_DATA_PER_PACKET;
+    packetCount.textContent = packets;
+}
+
+// ============================================================
+// 8. FUNGSI DETEKSI
+// ============================================================
+function isPing(bytes) {
+    if (bytes.length !== 4) return false;
+    return bytes[0] === 0x41 && bytes[1] === 0x54 && 
+           bytes[2] === 0x0D && bytes[3] === 0x0A;
+}
+
+function isBMSHeader(bytes) {
+    if (bytes.length < 4) return false;
+    return bytes[0] === 0x55 && bytes[1] === 0xAA && 
+           bytes[2] === 0xEB && bytes[3] === 0x90;
+}
+
+// ============================================================
+// 9. PROSES DATA MASUK DENGAN LOG MODE
+// ============================================================
+function handleBmsData(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const dataLength = bytes.length;
+    const hexStr = toHexString(buffer);
+    
+    // Detail mode: tampilkan semua data
+    if (logMode === 'detail') {
+        logTerminal(`📥 RAW: ${hexStr} (${dataLength} bytes)`, 'raw', true);
+    }
+    
+    if (dataLength <= 4) {
+        if (logMode === 'detail') {
+            logTerminal(`📶 PING: ${hexStr} (diabaikan)`, 'ping', true);
         }
+        return;
     }
-
-    // ============================================================
-    // 8. FUNGSI DETEKSI
-    // ============================================================
-    function isPing(bytes) {
-        if (bytes.length !== 4) return false;
-        return bytes[0] === 0x41 && bytes[1] === 0x54 && 
-               bytes[2] === 0x0D && bytes[3] === 0x0A;
-    }
-
-    function isBMSHeader(bytes) {
-        if (bytes.length < 4) return false;
-        return bytes[0] === 0x55 && bytes[1] === 0xAA && 
-               bytes[2] === 0xEB && bytes[3] === 0x90;
-    }
-
-    // ============================================================
-    // 9. PROSES DATA MASUK - LOGIKA BARU
-    // ============================================================
-    function handleBmsData(buffer) {
-        const bytes = new Uint8Array(buffer);
-        const dataLength = bytes.length;
-        const hexStr = toHexString(buffer);
-        
-        // STEP 1: Cek ukuran paket
-        if (dataLength <= 4) {
-            // Ini ping/heartbeat, abaikan
-            logTerminal(`📶 PING: ${hexStr} (diabaikan)`, 'ping');
-            return;
+    
+    if (isBMSHeader(bytes)) {
+        if (logMode === 'detail' || logMode === 'normal') {
+            logTerminal(`🔰 HEADER: ${dataLength} bytes (Paket 1/2)`, 'header', true);
+        } else {
+            // Ringkas: hanya tampilkan ada header
+            logTerminal(`📦 Header BMS diterima`, 'log-ringkas', true);
         }
+        resetCollection();
+        isCollecting = true;
+        packetCountState = 1;
+        bmsBuffer = [...Array.from(bytes)];
         
-        // STEP 2: Cek header
-        if (isBMSHeader(bytes)) {
-            logTerminal(`🔰 HEADER DETEKSI: ${dataLength} bytes (Paket 1/2)`, 'header');
+        if (logMode === 'detail') {
+            logTerminal(`📦 Paket 1: ${bmsBuffer.length} bytes`, 'packet', true);
+            logTerminal(`⏳ Menunggu paket 2...`, 'progress', true);
+        }
+        updateProgress(30);
+        
+        if (dataTimer) clearTimeout(dataTimer);
+        dataTimer = setTimeout(() => {
+            logTerminal('⏰ Timeout menunggu paket 2', 'warning', true);
+            resetCollection();
+        }, COLLECTION_TIMEOUT);
+        return;
+    }
+    
+    if (isCollecting && packetCountState === 1) {
+        if (dataLength === 128) {
+            bmsBuffer.push(...Array.from(bytes));
+            packetCountState = 2;
             
-            // Reset collector jika ada data lama
+            if (logMode === 'detail') {
+                logTerminal(`📦 Paket 2: ${dataLength} bytes`, 'packet', true);
+                logTerminal(`📊 Total: ${bmsBuffer.length} bytes`, 'progress', true);
+            } else if (logMode === 'normal') {
+                logTerminal(`📦 Paket 2 terkumpul (${dataLength} bytes)`, 'packet', true);
+            } else {
+                // Ringkas
+                logTerminal(`📦 Paket 2 diterima (${dataLength} bytes)`, 'log-ringkas', true);
+            }
+            
+            updateProgress(70);
+            processBMSData(bmsBuffer);
+            updateProgress(100);
             resetCollection();
             
-            // Mulai koleksi dengan paket ini
-            isCollecting = true;
-            packetCount = 1;
-            bmsBuffer = [...Array.from(bytes)];
-            
-            logTerminal(`📦 Paket 1 terkumpul: ${bmsBuffer.length} bytes`, 'packet');
-            logTerminal(`📊 Menunggu paket 2 (128 bytes)...`, 'progress');
-            updateProgress(30);
-            
-            // Set timeout untuk paket kedua
-            if (dataTimer) clearTimeout(dataTimer);
-            dataTimer = setTimeout(() => {
-                logTerminal('⏰ Timeout menunggu paket 2, reset...', 'warning');
-                resetCollection();
-            }, COLLECTION_TIMEOUT);
-            
-            return;
-        }
-        
-        // STEP 3: Jika sedang mengumpulkan dan paket ini bukan header
-        if (isCollecting && packetCount === 1) {
-            // STEP 4: Cek apakah paket berikutnya = 128 byte
-            if (dataLength === 128) {
-                // Ini paket kedua yang valid
-                bmsBuffer.push(...Array.from(bytes));
-                packetCount = 2;
-                
-                logTerminal(`📦 Paket 2 terkumpul: ${dataLength} bytes`, 'packet');
-                logTerminal(`📊 Total data: ${bmsBuffer.length} bytes (128+128)`, 'progress');
-                updateProgress(70);
-                
-                // STEP 6: Proses data
-                logTerminal(`🔄 Memproses ${bmsBuffer.length} bytes data BMS...`, 'progress');
-                processBMSData(bmsBuffer);
-                updateProgress(100);
-                
-                // Reset collector
-                resetCollection();
-                logTerminal(`✅ Selesai, menunggu paket baru...`, 'success');
+            if (logMode === 'detail' || logMode === 'normal') {
+                logTerminal(`✅ Selesai, menunggu paket baru`, 'success', true);
             } else {
-                // Bukan 128 byte, reset!
-                logTerminal(`⚠️ Paket ${dataLength} bytes bukan 128 byte, reset!`, 'error');
-                resetCollection();
+                logTerminal(`✅ Selesai`, 'log-ringkas', true);
             }
-            return;
-        }
-        
-        // Data tidak dikenali
-        if (isCollecting) {
-            logTerminal(`⚠️ Data tidak sesuai: ${dataLength} bytes (diharapkan 128 untuk paket 2)`, 'warning');
         } else {
-            logTerminal(`⚠️ Data tidak dikenali: ${dataLength} bytes (bukan header BMS)`, 'warning');
+            logTerminal(`⚠️ Paket ${dataLength} bytes bukan 128 byte, reset!`, 'error', true);
+            resetCollection();
+        }
+        return;
+    }
+    
+    if (isCollecting) {
+        logTerminal(`⚠️ Data tidak sesuai: ${dataLength} bytes`, 'warning', true);
+    } else {
+        if (logMode === 'detail') {
+            logTerminal(`⚠️ Data tidak dikenali: ${dataLength} bytes`, 'warning', true);
         }
     }
+}
 
-    // ============================================================
-    // 10. RESET COLLECTOR
-    // ============================================================
-    function resetCollection() {
-        isCollecting = false;
-        packetCount = 0;
-        bmsBuffer = [];
-        if (dataTimer) {
-            clearTimeout(dataTimer);
-            dataTimer = null;
-        }
-        updateProgress(0);
+// ============================================================
+// 10. RESET COLLECTOR
+// ============================================================
+function resetCollection() {
+    isCollecting = false;
+    packetCountState = 0;
+    bmsBuffer = [];
+    if (dataTimer) {
+        clearTimeout(dataTimer);
+        dataTimer = null;
+    }
+    updateProgress(0);
+}
+
+// ============================================================
+// 11. PROSES DATA BMS DENGAN LOG MODE
+// ============================================================
+function processBMSData(data) {
+    if (data.length === 0) {
+        logTerminal('⚠️ Tidak ada data BMS', 'warning', true);
+        return;
     }
 
-    // ============================================================
-    // 11. PROSES DATA BMS
-    // ============================================================
-    function processBMSData(data) {
-        if (data.length === 0) {
-            logTerminal('⚠️ Tidak ada data BMS untuk diproses', 'warning');
-            return;
-        }
-
-        const totalBytes = data.length;
-        logTerminal(`📊 Total data BMS: ${totalBytes} bytes`, 'progress');
-        
+    const totalBytes = data.length;
+    
+    if (logMode === 'detail') {
+        logTerminal(`📊 Proses ${totalBytes} bytes BMS`, 'progress', true);
         const bmsHex = arrayToHexString(data);
-        logTerminal(`📄 BMS DATA (${totalBytes} bytes): ${bmsHex.substring(0, 200)}${bmsHex.length > 200 ? ' ...' : ''}`, 'raw');
+        logTerminal(`📄 DATA: ${bmsHex.substring(0, 200)}${bmsHex.length > 200 ? ' ...' : ''}`, 'raw', true);
+    } else if (logMode === 'normal') {
+        logTerminal(`📊 Proses ${totalBytes} bytes data BMS`, 'stat', true);
+    } else {
+        // Ringkas
+        logTerminal(`📊 Data BMS: ${totalBytes} bytes`, 'log-ringkas', true);
+    }
 
-        if (data.length < 6 || 
-            data[0] !== 0x55 || data[1] !== 0xAA || 
-            data[2] !== 0xEB || data[3] !== 0x90) {
-            logTerminal('⚠️ Invalid BMS header! Data mungkin korup.', 'error');
-            return;
-        }
+    if (data.length < 6 || 
+        data[0] !== 0x55 || data[1] !== 0xAA || 
+        data[2] !== 0xEB || data[3] !== 0x90) {
+        logTerminal('⚠️ Invalid BMS header!', 'error', true);
+        return;
+    }
+
+    try {
+        const parser = new JKBMSParser();
+        const result = parser.parse(data);
         
-        logTerminal(`🔰 BMS Header valid: 55 AA EB 90`, 'header');
+        if (result) {
+            updateAllUI(result);
 
-        try {
-            const parser = new JKBMSParser();
-            const result = parser.parse(data);
-            
-            if (result) {
-                updateAllUI(result);
-
+            if (logMode === 'ringkas') {
+                // Ringkas: tampilkan summary
+                const s = result.status;
+                logTerminal(`⚡ ${s.totalVoltage.toFixed(2)}V ${s.current.toFixed(2)}A | SOC ${s.soc}% | ${s.powerStatus}`, 'log-ringkas', true);
+                logTerminal(`🔋 Cells: ${result.header.totalCells} | Temp: ${s.mosTemp.toFixed(1)}°C | Cycle: ${s.cycleCount}`, 'log-ringkas', true);
+            } else {
                 const outputLines = parser.formatOutput(result);
+                let lineCount = 0;
                 for (const line of outputLines) {
                     if (line.includes('🌡️')) {
-                        logTerminal(line, 'temp');
+                        logTerminal(line, 'temp', true);
                     } else if (line.includes('🔋') && !line.includes('SOC') && !line.includes('Battery')) {
-                        logTerminal(line, 'cell');
+                        logTerminal(line, 'cell', true);
                     } else if (line.includes('📊') || line.includes('📈') || line.includes('📦')) {
-                        logTerminal(line, 'stat');
+                        logTerminal(line, 'stat', true);
                     } else {
-                        logTerminal(line, 'data');
+                        logTerminal(line, 'data', true);
                     }
+                    lineCount++;
                 }
-                logTerminal(`✅ Parsing berhasil (${result.header.totalCells} cells, ${result.header.dataLength} bytes)`, 'success');
+                logTerminal(`✅ Parsing OK (${result.header.totalCells} cells)`, 'success', true);
             }
-        } catch (parseError) {
-            logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error');
         }
+    } catch (parseError) {
+        logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error', true);
     }
+}
 
-    // ============================================================
-    // 12. KONEKSI BLUETOOTH
-    // ============================================================
-    async function connectBle() {
-        try {
-            logTerminal('🔍 Mencari perangkat BMS...', 'info');
+// ============================================================
+// 12. KONEKSI BLUETOOTH
+// ============================================================
+async function connectBle() {
+    try {
+        logTerminal('🔍 Mencari perangkat BMS...', 'info', true);
 
-            device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }]
-            });
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }]
+        });
 
-            logTerminal(`✅ Terhubung ke: ${device.name || 'Tanpa Nama'}`, 'success');
+        logTerminal(`✅ Terhubung ke: ${device.name || 'Tanpa Nama'}`, 'success', true);
 
-            server = await device.gatt.connect();
-            isConnected = true;
-            updateStatus(true);
-
-            const serviceUUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
-            const charUUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
-
-            let service;
-            try {
-                service = await server.getPrimaryService(serviceUUID);
-            } catch (_) {
-                const services = await server.getPrimaryServices();
-                if (services.length === 0) throw new Error('Tidak ada service');
-                service = services[0];
-                logTerminal(`ℹ️ Menggunakan service: ${service.uuid}`, 'info');
-            }
-
-            characteristic = await service.getCharacteristic(charUUID);
-            logTerminal('✅ Karakteristik ditemukan', 'success');
-
-            resetCollection();
-
-            if (characteristic.properties.notify) {
-                await characteristic.startNotifications();
-                characteristic.addEventListener('characteristicvaluechanged', (event) => {
-                    const value = event.target.value;
-                    handleBmsData(value.buffer);
-                });
-                logTerminal('📡 Notifikasi diaktifkan', 'info');
-                logTerminal('📦 Mode: Kumpulkan 2 paket (128+128 byte)', 'info');
-                logTerminal('📶 Ping 4 byte diabaikan', 'info');
-            } else {
-                logTerminal('⚠️ Karakteristik tidak support notifikasi', 'warning');
-            }
-
-            try {
-                const value = await characteristic.readValue();
-                handleBmsData(value.buffer);
-            } catch (_) { /* ignore */ }
-
-        } catch (error) {
-            logTerminal(`Error: ${error.message}`, 'error');
-            resetAllUI();
-            updateStatus(false);
-            resetCollection();
-        }
-    }
-
-    // ============================================================
-    // 13. KIRIM DATA
-    // ============================================================
-    async function sendHexData(hexString, logType = 'hex_tx') {
-        if (!isConnected || !characteristic) {
-            logTerminal('Belum terhubung ke BMS', 'error');
-            return false;
-        }
+        server = await device.gatt.connect();
+        isConnected = true;
+        updateStatus(true);
 
         try {
-            resetCollection();
-            
-            const cleanHex = hexString.replace(/\s/g, '');
-            const maxChunkSize = 20;
-            const bytes = hexStringToBytes(hexString);
-            
-            if (bytes.length <= maxChunkSize) {
-                const dataToSend = new Uint8Array(bytes);
-                await characteristic.writeValue(dataToSend);
-                logTerminal(hexString, logType);
-                return true;
+            if (server.gatt && typeof server.gatt.requestMTU === 'function') {
+                const mtu = await server.gatt.requestMTU(131);
+                currentMTU = Math.min(mtu, 131);
+                logTerminal(`✅ MTU: ${currentMTU} bytes`, 'success', true);
             } else {
-                logTerminal(`📦 Mengirim ${bytes.length} bytes dalam beberapa paket...`, 'progress');
-                for (let i = 0; i < bytes.length; i += maxChunkSize) {
-                    const chunk = bytes.slice(i, i + maxChunkSize);
-                    const chunkHex = arrayToHexString(chunk);
-                    const dataToSend = new Uint8Array(chunk);
-                    await characteristic.writeValue(dataToSend);
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                    logTerminal(`📤 Chunk ${Math.floor(i/maxChunkSize)+1}: ${chunkHex}`, 'hex_tx');
-                }
-                logTerminal(`✅ ${Math.ceil(bytes.length/maxChunkSize)} paket terkirim`, 'success');
-                return true;
+                currentMTU = 128;
+                logTerminal(`ℹ️ MTU default: ${currentMTU} bytes`, 'info', true);
             }
-        } catch (error) {
-            logTerminal(`Gagal kirim: ${error.message}`, 'error');
-            return false;
+        } catch (mtuError) {
+            currentMTU = 128;
+            logTerminal(`⚠️ MTU: ${currentMTU} bytes (default)`, 'warning', true);
         }
-    }
-
-    async function sendAllData() {
-        const rawText = inputField.value.trim();
-        if (!rawText) {
-            logTerminal('Kolom input kosong', 'error');
-            return;
-        }
-
-        const lines = rawText.split(/[\n,;]+/).map(s => s.trim()).filter(s => s.length > 0);
         
-        if (lines.length === 0) {
-            logTerminal('Tidak ada data valid untuk dikirim', 'error');
-            return;
+        updateMTUInfo(0);
+
+        const serviceUUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+        const charUUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+        let service;
+        try {
+            service = await server.getPrimaryService(serviceUUID);
+        } catch (_) {
+            const services = await server.getPrimaryServices();
+            if (services.length === 0) throw new Error('Tidak ada service');
+            service = services[0];
+            logTerminal(`ℹ️ Service: ${service.uuid}`, 'info', true);
         }
 
-        logTerminal(`📤 Mengirim ${lines.length} perintah...`, 'progress');
+        characteristic = await service.getCharacteristic(charUUID);
+        logTerminal('✅ Karakteristik ditemukan', 'success', true);
+
+        resetCollection();
+
+        if (characteristic.properties.notify) {
+            await characteristic.startNotifications();
+            characteristic.addEventListener('characteristicvaluechanged', (event) => {
+                const value = event.target.value;
+                handleBmsData(value.buffer);
+            });
+            logTerminal('📡 Notifikasi aktif', 'info', true);
+            logTerminal('📦 Mode: 2 paket (128+128 byte)', 'info', true);
+        } else {
+            logTerminal('⚠️ Notifikasi tidak support', 'warning', true);
+        }
+
+        try {
+            const value = await characteristic.readValue();
+            handleBmsData(value.buffer);
+        } catch (_) { /* ignore */ }
+
+    } catch (error) {
+        logTerminal(`Error: ${error.message}`, 'error', true);
+        resetAllUI();
+        updateStatus(false);
+        resetCollection();
+    }
+}
+
+// ============================================================
+// 13. FUNGSI KIRIM
+// ============================================================
+async function sendFlexibleData(data, isHex = true, showProgress = true) {
+    if (!isConnected || !characteristic) {
+        logTerminal('❌ Belum terhubung ke BMS', 'error', true);
+        return false;
+    }
+
+    try {
+        resetCollection();
+        
+        let bytes;
+        if (isHex) {
+            const cleanHex = data.replace(/\s/g, '');
+            bytes = hexStringToBytes(data);
+        } else {
+            const encoder = new TextEncoder();
+            bytes = encoder.encode(data);
+        }
+        
+        const totalBytes = bytes.length;
+        const maxChunkSize = MAX_DATA_PER_PACKET;
+        const totalPackets = Math.ceil(totalBytes / maxChunkSize);
+        
+        updateMTUInfo(totalPackets);
+        
+        if (logMode === 'detail') {
+            logTerminal(`📤 ${totalBytes} bytes → ${totalPackets} paket`, 'progress', true);
+        } else if (logMode === 'normal') {
+            logTerminal(`📤 Kirim ${totalPackets} paket (${totalBytes} bytes)`, 'tx', true);
+        } else {
+            logTerminal(`📤 Kirim ${totalPackets} paket`, 'log-ringkas', true);
+        }
+        
+        if (showProgress) {
+            updateProgress(10);
+        }
         
         let successCount = 0;
-        for (let i = 0; i < lines.length; i++) {
-            const cmd = lines[i];
-            if (cmd.match(/^[0-9A-Fa-f\s]+$/)) {
-                const result = await sendHexData(cmd, 'hex_tx');
-                if (result) successCount++;
-            } else {
-                try {
-                    if (isConnected && characteristic) {
-                        const encoder = new TextEncoder();
-                        const dataToSend = encoder.encode(cmd + '\n');
-                        await characteristic.writeValue(dataToSend);
-                        logTerminal(`📤 "${cmd}"`, 'tx');
-                        successCount++;
-                    } else {
-                        logTerminal('Belum terhubung ke BMS', 'error');
-                    }
-                } catch (error) {
-                    logTerminal(`Gagal kirim teks: ${error.message}`, 'error');
-                }
+        let startTime = Date.now();
+        
+        for (let i = 0; i < totalBytes; i += maxChunkSize) {
+            const chunk = bytes.slice(i, Math.min(i + maxChunkSize, totalBytes));
+            const packetNum = Math.floor(i / maxChunkSize) + 1;
+            
+            const dataToSend = new Uint8Array(chunk);
+            await characteristic.writeValue(dataToSend);
+            
+            if (logMode === 'detail') {
+                const chunkHex = arrayToHexString(chunk);
+                logTerminal(`📤 Paket ${packetNum}/${totalPackets}: ${chunkHex}`, 'hex_tx', true);
+            } else if (logMode === 'normal' && totalPackets <= 10) {
+                const chunkHex = arrayToHexString(chunk);
+                logTerminal(`📤 Paket ${packetNum}/${totalPackets}: ${chunkHex}`, 'hex_tx', true);
             }
-            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            successCount++;
+            
+            if (showProgress) {
+                const progress = 10 + ((i + chunk.length) / totalBytes) * 80;
+                updateProgress(Math.min(progress, 90));
+            }
+            
+            if (i + maxChunkSize < totalBytes) {
+                const delay = totalPackets > 20 ? 20 : 50;
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
         }
         
-        logTerminal(`✅ Selesai: ${successCount}/${lines.length} perintah terkirim`, 'success');
-        inputField.value = '';
-    }
-
-    async function sendDevInfo() {
-        const hexData = 'AA 55 90 EB 97 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11';
-        await sendHexData(hexData, 'hex_dev');
-    }
-
-    async function sendBmsInfo() {
-        const hexData = 'AA 55 90 EB 96 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10';
-        await sendHexData(hexData, 'hex_bms');
-    }
-
-    // ============================================================
-    // 14. PUTUS KONEKSI & RESET
-    // ============================================================
-    function disconnect() {
-        if (device && device.gatt) {
-            try { device.gatt.disconnect(); } catch (_) {}
+        if (showProgress) {
+            updateProgress(100);
         }
-        isConnected = false;
-        device = null;
-        server = null;
-        characteristic = null;
-        updateStatus(false);
-        resetAllUI();
-        resetCollection();
-        logTerminal('Koneksi diputus', 'error');
-    }
-
-    function resetTerminal() {
-        terminalLog.innerHTML = '';
-        logTerminal('🔄 Terminal di-reset', 'info');
-        logTerminal('📦 Mode: Kumpulkan 2 paket (128+128 byte)', 'info');
-        logTerminal('📶 Ping 4 byte diabaikan', 'info');
-        resetAllUI();
-        resetCollection();
-    }
-
-    // ============================================================
-    // 15. UPDATE STATUS
-    // ============================================================
-    function updateStatus(connected) {
-        if (connected) {
-            ledIndicator.className = 'led connected';
-            statusText.textContent = 'Terhubung';
+        
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+        
+        if (logMode === 'ringkas') {
+            logTerminal(`✅ ${successCount}/${totalPackets} paket terkirim`, 'log-ringkas', true);
         } else {
-            ledIndicator.className = 'led';
-            statusText.textContent = 'Putus';
+            logTerminal(`✅ ${successCount}/${totalPackets} paket terkirim (${elapsed}s)`, 'success', true);
         }
+        
+        setTimeout(() => {
+            updateProgress(0);
+            updateMTUInfo(0);
+        }, 500);
+        
+        return true;
+        
+    } catch (error) {
+        logTerminal(`❌ Gagal kirim: ${error.message}`, 'error', true);
+        updateProgress(0);
+        updateMTUInfo(0);
+        return false;
     }
+}
 
-    // ============================================================
-    // 16. EVENT LISTENER
-    // ============================================================
-    scanBtn.addEventListener('click', connectBle);
-    devInfoBtn.addEventListener('click', sendDevInfo);
-    bmsInfoBtn.addEventListener('click', sendBmsInfo);
-    resetBtn.addEventListener('click', resetTerminal);
-    multiSendBtn.addEventListener('click', sendAllData);
-
-    sendBtn.addEventListener('click', () => {
-        const text = inputField.value.trim();
-        if (!text) {
-            logTerminal('Kolom input kosong', 'error');
+// ============================================================
+// 14. TOMBOL KIRIM
+// ============================================================
+async function sendData() {
+    const text = inputField.value.trim();
+    if (!text) {
+        logTerminal('❌ Kolom input kosong', 'error', true);
+        return;
+    }
+    
+    const isHex = /^[0-9A-Fa-f\s]+$/.test(text);
+    
+    if (isHex) {
+        const cleanHex = text.replace(/\s/g, '');
+        if (cleanHex.length % 2 !== 0) {
+            logTerminal('⚠️ HEX tidak valid', 'warning', true);
             return;
         }
-        if (text.match(/^[0-9A-Fa-f\s]+$/)) {
-            sendHexData(text, 'hex_tx');
+        await sendFlexibleData(text, true, true);
+    } else {
+        await sendFlexibleData(text, false, true);
+    }
+    
+    inputField.value = '';
+}
+
+// ============================================================
+// 15. KIRIM LAINNYA
+// ============================================================
+async function sendDevInfo() {
+    const hexData = 'AA 55 90 EB 97 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11';
+    await sendFlexibleData(hexData, true, true);
+}
+
+async function sendBmsInfo() {
+    const hexData = 'AA 55 90 EB 96 00 00 00 00 00 00 00 00 00 00 00 00 00 00 10';
+    await sendFlexibleData(hexData, true, true);
+}
+
+// ============================================================
+// 16. LOG MODE TOGGLE
+// ============================================================
+function toggleLogMode() {
+    const currentIndex = LOG_MODES.indexOf(logMode);
+    const nextIndex = (currentIndex + 1) % LOG_MODES.length;
+    logMode = LOG_MODES[nextIndex];
+    
+    logModeDisplay.textContent = LOG_MODE_LABELS[logMode];
+    logModeBtn.innerHTML = `📋 ${LOG_MODE_LABELS[logMode]}`;
+    
+    // Update class
+    logModeBtn.className = 'btn btn-log';
+    if (logMode === 'ringkas') {
+        logModeBtn.classList.add('active');
+        logModeBtn.style.borderColor = '#4dd0e1';
+    } else if (logMode === 'normal') {
+        logModeBtn.classList.add('active');
+        logModeBtn.style.borderColor = '#81c784';
+    } else {
+        logModeBtn.classList.add('active');
+        logModeBtn.style.borderColor = '#ffcc80';
+    }
+    
+    logTerminal(`📋 Log mode: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
+    
+    // Info mode
+    if (logMode === 'ringkas') {
+        logTerminal(`📋 Ringkas: hanya hasil & error`, 'log-ringkas', true);
+    } else if (logMode === 'normal') {
+        logTerminal(`📋 Normal: hasil parsing (tanpa raw)`, 'log-normal', true);
+    } else {
+        logTerminal(`📋 Detail: semua data termasuk raw HEX`, 'log-detail', true);
+    }
+}
+
+// ============================================================
+// 17. PUTUS KONEKSI & RESET
+// ============================================================
+function disconnect() {
+    if (device && device.gatt) {
+        try { device.gatt.disconnect(); } catch (_) {}
+    }
+    isConnected = false;
+    device = null;
+    server = null;
+    characteristic = null;
+    updateStatus(false);
+    resetAllUI();
+    resetCollection();
+    updateMTUInfo(0);
+    logTerminal('⛔ Koneksi diputus', 'error', true);
+}
+
+function resetTerminal() {
+    terminalLog.innerHTML = '';
+    logTerminal('🔄 Terminal di-reset', 'info', true);
+    logTerminal('📋 Log mode: ' + LOG_MODE_LABELS[logMode], 'info', true);
+    logTerminal('📦 Mode: 2 paket (128+128 byte)', 'info', true);
+    logTerminal('📶 Ping 4 byte diabaikan', 'info', true);
+    resetAllUI();
+    resetCollection();
+    updateMTUInfo(0);
+}
+
+// ============================================================
+// 18. UPDATE STATUS
+// ============================================================
+function updateStatus(connected) {
+    if (connected) {
+        ledIndicator.className = 'led connected';
+        statusText.textContent = 'Terhubung';
+    } else {
+        ledIndicator.className = 'led';
+        statusText.textContent = 'Putus';
+    }
+}
+
+// ============================================================
+// 19. EVENT LISTENER
+// ============================================================
+scanBtn.addEventListener('click', connectBle);
+devInfoBtn.addEventListener('click', sendDevInfo);
+bmsInfoBtn.addEventListener('click', sendBmsInfo);
+resetBtn.addEventListener('click', resetTerminal);
+logModeBtn.addEventListener('click', toggleLogMode);
+sendBtn.addEventListener('click', sendData);
+
+inputField.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+            const start = inputField.selectionStart;
+            const end = inputField.selectionEnd;
+            inputField.value = inputField.value.substring(0, start) + '\n' + inputField.value.substring(end);
+            inputField.selectionStart = inputField.selectionEnd = start + 1;
         } else {
-            sendDataText(text);
-        }
-        inputField.value = '';
-    });
-
-    async function sendDataText(text) {
-        if (!isConnected || !characteristic) {
-            logTerminal('Belum terhubung ke BMS', 'error');
-            return;
-        }
-        try {
-            resetCollection();
-            const encoder = new TextEncoder();
-            const dataToSend = encoder.encode(text + '\n');
-            await characteristic.writeValue(dataToSend);
-            logTerminal(text, 'tx');
-        } catch (error) {
-            logTerminal(`Gagal kirim: ${error.message}`, 'error');
+            sendBtn.click();
         }
     }
+});
 
-    inputField.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (e.shiftKey) {
-                const start = inputField.selectionStart;
-                const end = inputField.selectionEnd;
-                inputField.value = inputField.value.substring(0, start) + '\n' + inputField.value.substring(end);
-                inputField.selectionStart = inputField.selectionEnd = start + 1;
-            } else {
-                sendBtn.click();
-            }
-        }
-    });
+disconnectBtn.addEventListener('click', disconnect);
 
-    disconnectBtn.addEventListener('click', disconnect);
+// ============================================================
+// 20. INISIALISASI
+// ============================================================
+logTerminal('🚀 BMS Terminal v3 - Log Mode siap', 'info', true);
+logTerminal('💡 Pastikan Bluetooth HP aktif', 'info', true);
+logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info', true);
+logTerminal('📋 Klik "Log Mode" untuk ganti mode', 'info', true);
+logTerminal(`📋 Mode saat ini: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
 
-    // ============================================================
-    // 17. INISIALISASI
-    // ============================================================
-    logTerminal('🚀 BMS Terminal v2 siap', 'info');
-    logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
-    logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
-    logTerminal('📦 Mode: Kumpulkan 2 paket (128+128 byte)', 'info');
-    logTerminal('📶 Ping 4 byte diabaikan', 'info');
-    logTerminal('💡 Gunakan "Kirim Semua" untuk mengirim banyak data', 'info');
+updateMTUInfo(0);
 
-    if (!navigator.bluetooth) {
-        logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
-        logTerminal('ℹ️ Gunakan Chrome di Android / Desktop', 'info');
-    }
+if (!navigator.bluetooth) {
+    logTerminal('❌ Browser tidak support Web Bluetooth', 'error', true);
+    logTerminal('ℹ️ Gunakan Chrome di Android / Desktop', 'info', true);
+}
 </script>
-
 </body>
 </html>
