@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>BMS Bluetooth Terminal</title>
+    <title>BMS Bluetooth Terminal v2</title>
     <style>
         * {
             margin: 0;
@@ -71,7 +71,6 @@
             box-shadow: 0 0 20px #00ff88aa;
         }
 
-        /* BMS Grid Utama */
         .bms-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -113,17 +112,6 @@
             background: rgba(0, 255, 200, 0.05);
         }
 
-        .bms-card.warning {
-            border-color: rgba(255, 200, 0, 0.3);
-            background: rgba(255, 200, 0, 0.05);
-        }
-
-        .bms-card.danger {
-            border-color: rgba(255, 60, 60, 0.3);
-            background: rgba(255, 60, 60, 0.05);
-        }
-
-        /* Dashboard Grid - Indikator Tambahan */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -205,10 +193,7 @@
             border-radius: 20px;
         }
 
-        .terminal .time {
-            color: #3a6a8a;
-            margin-right: 4px;
-        }
+        .terminal .time { color: #3a6a8a; margin-right: 4px; }
         .terminal .info { color: #a0b8d0; }
         .terminal .error { color: #ff6b7a; }
         .terminal .warning { color: #ffd93d; }
@@ -383,7 +368,7 @@
 
 <div class="container">
     <div class="header">
-        <h1>⚡ BMS Terminal</h1>
+        <h1>⚡ BMS Terminal v2</h1>
         <div class="status-led">
             <span id="statusText">Putus</span>
             <span class="led" id="ledIndicator"></span>
@@ -410,7 +395,7 @@
         </div>
     </div>
 
-    <!-- Dashboard Grid - Indikator Detail -->
+    <!-- Dashboard Grid -->
     <div class="dashboard-grid">
         <div class="dashboard-card highlight green">
             <div class="label">Max Cell</div>
@@ -464,15 +449,14 @@
     </div>
 
     <div class="terminal" id="terminalLog">
-        <div><span class="time">[system]</span> <span class="info">▶ Siap menerima data BMS</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ BMS Terminal v2</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Mode: Kumpulkan 2 paket (128+128 byte)</span></div>
+        <div><span class="time">[system]</span> <span class="info">▶ Ping 4 byte diabaikan</span></div>
         <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Deteksi Header: 55 AA EB 90</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Deteksi Terminator: 41 54 0D 0A</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Mapping offset reverse engineering</span></div>
     </div>
 
     <div class="input-row">
-        <input type="text" id="inputField" placeholder="Kirim HEX (pisah dengan spasi / newline)" />
+        <input type="text" id="inputField" placeholder="Kirim HEX (pisah dengan spasi)" />
         <button class="btn btn-primary" id="sendBtn">🚀 Kirim</button>
     </div>
 
@@ -538,12 +522,15 @@
     let characteristic = null;
     let isConnected = false;
 
-    let bmsDataBuffer = [];
+    // State untuk pengumpulan data baru
     let isCollecting = false;
+    let packetCount = 0;
+    let bmsBuffer = [];
     let dataTimer = null;
+    const COLLECTION_TIMEOUT = 3000; // 3 detik
 
     // ============================================================
-    // 3. JK BMS PARSER (Sesuai mapping offset)
+    // 3. JK BMS PARSER (Sama seperti sebelumnya)
     // ============================================================
     class JKBMSParser {
         constructor() {
@@ -589,7 +576,7 @@
             const recordType = data[4];
             const frameCounter = data[5];
 
-            // 2. Cell Voltages (offset 6-69) - 32 cell x 2 byte
+            // Cell Voltages (offset 6-69)
             const cellVoltages = [];
             let minVoltage = 100;
             let maxVoltage = 0;
@@ -620,7 +607,7 @@
                 }
             }
 
-            // 3. Cell Metadata (offset 70-79)
+            // Cell Metadata (offset 70-79)
             const enabledMask = this.getUint32(data, 70);
             const enabledCells = [];
             for (let i = 0; i < 32; i++) {
@@ -635,7 +622,7 @@
             const balancingCell1 = data[78] || 0;
             const balancingCell2 = data[79] || 0;
 
-            // 4. Wire Resistance (offset 80-143)
+            // Wire Resistance (offset 80-143)
             const cellResistances = [];
             for (let i = 0; i < 32; i++) {
                 const offset = 80 + (i * 2);
@@ -645,14 +632,14 @@
                 cellResistances.push({ cell: i + 1, raw: raw, resistance: resistance });
             }
 
-            // 5. Pack Status (offset 144-161)
+            // Pack Status (offset 144-161)
             const mosTemp = this.getUint16(data, 144) * 0.1;
             const wireWarningMask = this.getUint32(data, 146);
             const totalVoltagePack = this.getUint32(data, 150) * 0.001;
             const power = this.getInt32(data, 154);
             const current = this.getInt32(data, 158) * 0.001;
 
-            // 6. External Temperature Sensors (offset 162-169)
+            // Temperature Sensors (offset 162-169)
             const temp1Raw = this.getInt16(data, 162);
             const temp1 = temp1Raw === -2000 ? null : temp1Raw * 0.1;
             const temp2Raw = this.getInt16(data, 164);
@@ -660,24 +647,17 @@
             const reserved1 = this.getUint16(data, 166);
             const mosTempAlt = this.getUint16(data, 168) * 0.5;
 
-            // 7. State of Charge & Capacity (offset 173-185)
+            // SOC & Capacity (offset 170-185)
             const soc = data[173] || 0;
             const capacityRemain = this.getUint32(data, 174);
             const capacityNominal = this.getUint32(data, 178);
             const cycleCount = this.getUint32(data, 182);
 
-            // Data sisa (offset 186-303)
+            // Data sisa (offset 186-255) - hanya untuk 256 byte data
             const remainingData = data.slice(186);
             const remainingHex = this.arrayToHexString(remainingData);
 
-            // Deteksi terminator
-            const hasTerminator = data.length >= 4 && 
-                data[data.length-4] === 0x41 && 
-                data[data.length-3] === 0x54 && 
-                data[data.length-2] === 0x0D && 
-                data[data.length-1] === 0x0A;
-
-            // Coba deteksi battery type
+            // Deteksi battery type
             let batteryType = 'Unknown';
             if (data.length > 243) {
                 const typeCode = data[243] || 0;
@@ -694,7 +674,7 @@
                     enabledCells: enabledCells,
                     enabledMask: enabledMask,
                     dataLength: data.length,
-                    hasTerminator: hasTerminator
+                    hasTerminator: false // Tidak ada terminator di 256 byte
                 },
                 cellVoltages: cellVoltages,
                 cellResistances: cellResistances,
@@ -824,14 +804,6 @@
                 lines.push(`🔋 Battery: ${s.batteryType}`);
             }
             
-            lines.push(`📊 Enabled Mask: ${h.enabledMask} (${h.enabledMaskHex})`);
-            
-            if (h.hasTerminator) {
-                lines.push(`✅ Terminator: 41 54 0D 0A (valid)`);
-            } else {
-                lines.push(`⚠️ Terminator: 41 54 0D 0A (tidak ditemukan)`);
-            }
-            
             // Preview cell voltages
             const cellPreview = result.cellVoltages
                 .slice(0, Math.min(8, h.totalCells))
@@ -948,7 +920,6 @@
         if (s.deltaVoltage !== undefined && !isNaN(s.deltaVoltage)) {
             const deltaMv = s.deltaVoltage * 1000;
             dashDelta.textContent = deltaMv.toFixed(1);
-            // Status Delta
             if (deltaMv < 10) {
                 dashDeltaStatus.textContent = '✅ Seimbang';
                 dashDeltaStatus.style.color = '#6fcf97';
@@ -1026,13 +997,10 @@
     }
 
     function resetAllUI() {
-        // BMS Grid Utama
         bmsVoltage.textContent = '--';
         bmsCurrent.textContent = '--';
         bmsSoc.textContent = '--';
         bmsCycle.textContent = '--';
-
-        // Dashboard
         dashMaxCell.textContent = '--';
         dashMinCell.textContent = '--';
         dashDelta.textContent = '--';
@@ -1042,7 +1010,6 @@
         dashTemp2.textContent = '--';
         dashCapacity.textContent = '--';
         dashActiveCells.textContent = '--';
-
         dashMaxCellNum.textContent = 'Cell #--';
         dashMinCellNum.textContent = 'Cell #--';
         dashDeltaStatus.textContent = '--';
@@ -1069,86 +1036,113 @@
     }
 
     // ============================================================
-    // 8. CEK HEADER & TERMINATOR
+    // 8. FUNGSI DETEKSI
     // ============================================================
+    function isPing(bytes) {
+        if (bytes.length !== 4) return false;
+        return bytes[0] === 0x41 && bytes[1] === 0x54 && 
+               bytes[2] === 0x0D && bytes[3] === 0x0A;
+    }
+
     function isBMSHeader(bytes) {
         if (bytes.length < 4) return false;
-        return bytes[0] === 0x55 && bytes[1] === 0xAA && bytes[2] === 0xEB && bytes[3] === 0x90;
-    }
-
-    function isTerminator(bytes) {
-        if (bytes.length < 4) return false;
-        const len = bytes.length;
-        return bytes[len-4] === 0x41 && bytes[len-3] === 0x54 && 
-               bytes[len-2] === 0x0D && bytes[len-1] === 0x0A;
+        return bytes[0] === 0x55 && bytes[1] === 0xAA && 
+               bytes[2] === 0xEB && bytes[3] === 0x90;
     }
 
     // ============================================================
-    // 9. HANDLE DATA MASUK
+    // 9. PROSES DATA MASUK - LOGIKA BARU
     // ============================================================
     function handleBmsData(buffer) {
         const bytes = new Uint8Array(buffer);
         const dataLength = bytes.length;
         const hexStr = toHexString(buffer);
         
-        logTerminal(`RAW DATA (${dataLength} bytes): ${hexStr}`, 'raw');
-        
-        if (dataLength === 4 && !isBMSHeader(Array.from(bytes))) {
-            logTerminal(`Ping: ${hexStr} (diabaikan)`, 'ping');
+        // STEP 1: Cek ukuran paket
+        if (dataLength <= 4) {
+            // Ini ping/heartbeat, abaikan
+            logTerminal(`📶 PING: ${hexStr} (diabaikan)`, 'ping');
             return;
         }
         
-        const isHeader = isBMSHeader(Array.from(bytes));
-        
-        if (isHeader) {
-            logTerminal(`🔰 HEADER BMS DETEKSI: ${dataLength} bytes`, 'header');
-            resetCollector();
-            isCollecting = true;
-            bmsDataBuffer.push(...Array.from(bytes));
-            logTerminal(`📦 Mulai mengumpulkan data BMS...`, 'packet');
-            updateProgress(10);
+        // STEP 2: Cek header
+        if (isBMSHeader(bytes)) {
+            logTerminal(`🔰 HEADER DETEKSI: ${dataLength} bytes (Paket 1/2)`, 'header');
             
+            // Reset collector jika ada data lama
+            resetCollection();
+            
+            // Mulai koleksi dengan paket ini
+            isCollecting = true;
+            packetCount = 1;
+            bmsBuffer = [...Array.from(bytes)];
+            
+            logTerminal(`📦 Paket 1 terkumpul: ${bmsBuffer.length} bytes`, 'packet');
+            logTerminal(`📊 Menunggu paket 2 (128 bytes)...`, 'progress');
+            updateProgress(30);
+            
+            // Set timeout untuk paket kedua
             if (dataTimer) clearTimeout(dataTimer);
             dataTimer = setTimeout(() => {
-                logTerminal('⏰ Timeout: Tidak ada terminator yang diterima', 'warning');
-                resetCollector();
-            }, 3000);
+                logTerminal('⏰ Timeout menunggu paket 2, reset...', 'warning');
+                resetCollection();
+            }, COLLECTION_TIMEOUT);
+            
             return;
         }
         
+        // STEP 3: Jika sedang mengumpulkan dan paket ini bukan header
+        if (isCollecting && packetCount === 1) {
+            // STEP 4: Cek apakah paket berikutnya = 128 byte
+            if (dataLength === 128) {
+                // Ini paket kedua yang valid
+                bmsBuffer.push(...Array.from(bytes));
+                packetCount = 2;
+                
+                logTerminal(`📦 Paket 2 terkumpul: ${dataLength} bytes`, 'packet');
+                logTerminal(`📊 Total data: ${bmsBuffer.length} bytes (128+128)`, 'progress');
+                updateProgress(70);
+                
+                // STEP 6: Proses data
+                logTerminal(`🔄 Memproses ${bmsBuffer.length} bytes data BMS...`, 'progress');
+                processBMSData(bmsBuffer);
+                updateProgress(100);
+                
+                // Reset collector
+                resetCollection();
+                logTerminal(`✅ Selesai, menunggu paket baru...`, 'success');
+            } else {
+                // Bukan 128 byte, reset!
+                logTerminal(`⚠️ Paket ${dataLength} bytes bukan 128 byte, reset!`, 'error');
+                resetCollection();
+            }
+            return;
+        }
+        
+        // Data tidak dikenali
         if (isCollecting) {
-            bmsDataBuffer.push(...Array.from(bytes));
-            
-            const progress = Math.min((bmsDataBuffer.length / 304) * 100, 90);
-            updateProgress(progress);
-            
-            if (isTerminator(bmsDataBuffer)) {
-                logTerminal(`⛔ TERMINATOR DETEKSI: 41 54 0D 0A`, 'terminator');
-                const dataWithoutTerminator = bmsDataBuffer.slice(0, bmsDataBuffer.length - 4);
-                const terminatorBytes = bmsDataBuffer.slice(bmsDataBuffer.length - 4);
-                
-                logTerminal(`📝 Data BMS length: ${dataWithoutTerminator.length} bytes (terminator removed)`, 'info');
-                logTerminal(`📝 Terminator: ${arrayToHexString(Array.from(terminatorBytes))}`, 'terminator');
-                
-                processBMSData(dataWithoutTerminator);
-                resetCollector();
-                return;
-            }
-            
-            if (dataTimer) {
-                clearTimeout(dataTimer);
-            }
-            dataTimer = setTimeout(() => {
-                logTerminal('⏰ Timeout: Tidak ada terminator yang diterima', 'warning');
-                resetCollector();
-            }, 2000);
+            logTerminal(`⚠️ Data tidak sesuai: ${dataLength} bytes (diharapkan 128 untuk paket 2)`, 'warning');
         } else {
             logTerminal(`⚠️ Data tidak dikenali: ${dataLength} bytes (bukan header BMS)`, 'warning');
         }
     }
 
     // ============================================================
-    // 10. PROSES DATA BMS
+    // 10. RESET COLLECTOR
+    // ============================================================
+    function resetCollection() {
+        isCollecting = false;
+        packetCount = 0;
+        bmsBuffer = [];
+        if (dataTimer) {
+            clearTimeout(dataTimer);
+            dataTimer = null;
+        }
+        updateProgress(0);
+    }
+
+    // ============================================================
+    // 11. PROSES DATA BMS
     // ============================================================
     function processBMSData(data) {
         if (data.length === 0) {
@@ -1176,7 +1170,6 @@
             const result = parser.parse(data);
             
             if (result) {
-                // Update semua UI
                 updateAllUI(result);
 
                 const outputLines = parser.formatOutput(result);
@@ -1196,19 +1189,6 @@
         } catch (parseError) {
             logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error');
         }
-    }
-
-    // ============================================================
-    // 11. RESET COLLECTOR
-    // ============================================================
-    function resetCollector() {
-        bmsDataBuffer = [];
-        isCollecting = false;
-        if (dataTimer) {
-            clearTimeout(dataTimer);
-            dataTimer = null;
-        }
-        updateProgress(0);
     }
 
     // ============================================================
@@ -1244,7 +1224,7 @@
             characteristic = await service.getCharacteristic(charUUID);
             logTerminal('✅ Karakteristik ditemukan', 'success');
 
-            resetCollector();
+            resetCollection();
 
             if (characteristic.properties.notify) {
                 await characteristic.startNotifications();
@@ -1253,9 +1233,8 @@
                     handleBmsData(value.buffer);
                 });
                 logTerminal('📡 Notifikasi diaktifkan', 'info');
-                logTerminal('📦 Menunggu header BMS (55 AA EB 90)', 'info');
-                logTerminal('📶 Terminator: 41 54 0D 0A', 'info');
-                logTerminal('📄 Menggunakan mapping offset reverse engineering', 'info');
+                logTerminal('📦 Mode: Kumpulkan 2 paket (128+128 byte)', 'info');
+                logTerminal('📶 Ping 4 byte diabaikan', 'info');
             } else {
                 logTerminal('⚠️ Karakteristik tidak support notifikasi', 'warning');
             }
@@ -1269,12 +1248,12 @@
             logTerminal(`Error: ${error.message}`, 'error');
             resetAllUI();
             updateStatus(false);
-            resetCollector();
+            resetCollection();
         }
     }
 
     // ============================================================
-    // 13. KIRIM DATA - DIPERBAIKI UNTUK BANYAK DATA
+    // 13. KIRIM DATA
     // ============================================================
     async function sendHexData(hexString, logType = 'hex_tx') {
         if (!isConnected || !characteristic) {
@@ -1283,29 +1262,24 @@
         }
 
         try {
-            resetCollector();
+            resetCollection();
             
-            // Bersihkan dan proses hex string
             const cleanHex = hexString.replace(/\s/g, '');
-            // Bagi menjadi beberapa paket jika lebih dari 20 byte (karakteristik BLE biasanya max 20-23 byte)
-            const maxChunkSize = 20; // bytes
+            const maxChunkSize = 20;
             const bytes = hexStringToBytes(hexString);
             
             if (bytes.length <= maxChunkSize) {
-                // Kirim langsung
                 const dataToSend = new Uint8Array(bytes);
                 await characteristic.writeValue(dataToSend);
                 logTerminal(hexString, logType);
                 return true;
             } else {
-                // Kirim dalam beberapa chunk
                 logTerminal(`📦 Mengirim ${bytes.length} bytes dalam beberapa paket...`, 'progress');
                 for (let i = 0; i < bytes.length; i += maxChunkSize) {
                     const chunk = bytes.slice(i, i + maxChunkSize);
                     const chunkHex = arrayToHexString(chunk);
                     const dataToSend = new Uint8Array(chunk);
                     await characteristic.writeValue(dataToSend);
-                    // Tunggu sedikit agar BMS punya waktu memproses
                     await new Promise(resolve => setTimeout(resolve, 50));
                     logTerminal(`📤 Chunk ${Math.floor(i/maxChunkSize)+1}: ${chunkHex}`, 'hex_tx');
                 }
@@ -1318,9 +1292,6 @@
         }
     }
 
-    // ============================================================
-    // 13b. KIRIM SEMUA DATA DARI INPUT (MULTI-LINE)
-    // ============================================================
     async function sendAllData() {
         const rawText = inputField.value.trim();
         if (!rawText) {
@@ -1328,7 +1299,6 @@
             return;
         }
 
-        // Split berdasarkan newline atau koma atau spasi ganda
         const lines = rawText.split(/[\n,;]+/).map(s => s.trim()).filter(s => s.length > 0);
         
         if (lines.length === 0) {
@@ -1341,12 +1311,10 @@
         let successCount = 0;
         for (let i = 0; i < lines.length; i++) {
             const cmd = lines[i];
-            // Cek apakah ini HEX atau teks biasa
             if (cmd.match(/^[0-9A-Fa-f\s]+$/)) {
                 const result = await sendHexData(cmd, 'hex_tx');
                 if (result) successCount++;
             } else {
-                // Kirim sebagai teks
                 try {
                     if (isConnected && characteristic) {
                         const encoder = new TextEncoder();
@@ -1361,7 +1329,6 @@
                     logTerminal(`Gagal kirim teks: ${error.message}`, 'error');
                 }
             }
-            // Tunggu sebentar antar perintah
             await new Promise(resolve => setTimeout(resolve, 100));
         }
         
@@ -1392,18 +1359,17 @@
         characteristic = null;
         updateStatus(false);
         resetAllUI();
-        resetCollector();
+        resetCollection();
         logTerminal('Koneksi diputus', 'error');
     }
 
     function resetTerminal() {
         terminalLog.innerHTML = '';
         logTerminal('🔄 Terminal di-reset', 'info');
-        logTerminal('📦 Deteksi Header: 55 AA EB 90', 'info');
-        logTerminal('📶 Deteksi Terminator: 41 54 0D 0A', 'info');
-        logTerminal('📄 Mapping offset reverse engineering', 'info');
+        logTerminal('📦 Mode: Kumpulkan 2 paket (128+128 byte)', 'info');
+        logTerminal('📶 Ping 4 byte diabaikan', 'info');
         resetAllUI();
-        resetCollector();
+        resetCollection();
     }
 
     // ============================================================
@@ -1448,7 +1414,7 @@
             return;
         }
         try {
-            resetCollector();
+            resetCollection();
             const encoder = new TextEncoder();
             const dataToSend = encoder.encode(text + '\n');
             await characteristic.writeValue(dataToSend);
@@ -1461,9 +1427,7 @@
     inputField.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            // Cek apakah Shift+Enter untuk newline
             if (e.shiftKey) {
-                // Tambahkan newline ke input
                 const start = inputField.selectionStart;
                 const end = inputField.selectionEnd;
                 inputField.value = inputField.value.substring(0, start) + '\n' + inputField.value.substring(end);
@@ -1479,13 +1443,12 @@
     // ============================================================
     // 17. INISIALISASI
     // ============================================================
-    logTerminal('🚀 Web BMS Terminal siap', 'info');
+    logTerminal('🚀 BMS Terminal v2 siap', 'info');
     logTerminal('💡 Pastikan Bluetooth HP aktif', 'info');
     logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info');
-    logTerminal('📦 Deteksi Header: 55 AA EB 90', 'info');
-    logTerminal('📶 Deteksi Terminator: 41 54 0D 0A', 'info');
-    logTerminal('📄 Mapping offset reverse engineering', 'info');
-    logTerminal('💡 Gunakan "Kirim Semua" untuk mengirim banyak data (pisah dengan newline/coma)', 'info');
+    logTerminal('📦 Mode: Kumpulkan 2 paket (128+128 byte)', 'info');
+    logTerminal('📶 Ping 4 byte diabaikan', 'info');
+    logTerminal('💡 Gunakan "Kirim Semua" untuk mengirim banyak data', 'info');
 
     if (!navigator.bluetooth) {
         logTerminal('❌ Browser tidak mendukung Web Bluetooth API', 'error');
