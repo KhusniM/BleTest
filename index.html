@@ -1132,7 +1132,7 @@ function isBMSHeader(bytes) {
 }
 
 // ============================================================
-// 9. PROSES DATA MASUK
+// 9. PROSES DATA MASUK (DENGAN DUKUNGAN PAKET > 200 BYTE)
 // ============================================================
 function handleBmsData(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -1148,6 +1148,44 @@ function handleBmsData(buffer) {
         return;
     }
     
+    // ============================================================
+    // FITUR BARU: Jika data > 200 byte dan memiliki header BMS
+    // ============================================================
+    if (dataLength > 200 && isBMSHeader(bytes)) {
+        logTerminal(`📦 Data besar terdeteksi: ${dataLength} bytes (langsung diproses)`, 'packet', true);
+        
+        // Reset collection terlebih dahulu
+        resetCollection();
+        
+        // Proses data langsung tanpa menunggu paket kedua
+        const result = processBMSData(Array.from(bytes));
+        if (result) {
+            lastBMSData = result;
+            lastLogTime = Date.now();
+            
+            // Tampilkan log sesuai mode
+            if (logMode === 'ringkas') {
+                showRingkasLog(result);
+            } else if (logMode === 'normal') {
+                showNormalLog(result);
+            }
+            
+            logTerminal(`✅ Data ${dataLength} bytes berhasil diparsing`, 'success', true);
+        } else {
+            logTerminal(`❌ Gagal memparse data ${dataLength} bytes`, 'error', true);
+        }
+        
+        updateProgress(100);
+        setTimeout(() => {
+            updateProgress(0);
+        }, 500);
+        
+        return;
+    }
+    
+    // ============================================================
+    // LOGIKA STANDAR: Pengumpulan 2 paket (untuk data < 200 byte)
+    // ============================================================
     if (isBMSHeader(bytes)) {
         resetCollection();
         isCollecting = true;
