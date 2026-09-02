@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>BMS Terminal - Log Mode</title>
+    <title>BMS To CAN</title>
     <style>
         * {
             margin: 0;
@@ -186,7 +186,7 @@
         .dashboard-card.yellow .value { color: #ffd54f; }
         .dashboard-card.pink .value { color: #f48fb1; }
 
-        .terminal {
+        .l {
             background: rgba(0, 10, 20, 0.7);
             border-radius: 16px;
             padding: 14px;
@@ -201,10 +201,10 @@
             scroll-behavior: smooth;
         }
 
-        .terminal::-webkit-scrollbar {
+        .l::-webkit-scrollbar {
             width: 4px;
         }
-        .terminal::-webkit-scrollbar-track {
+        .l::-webkit-scrollbar-track {
             background: transparent;
         }
         .terminal::-webkit-scrollbar-thumb {
@@ -405,7 +405,7 @@
 
 <div class="container">
     <div class="header">
-        <h1>⚡ BMS Terminal v3</h1>
+        <h1>⚡ BMS to CAN</h1>
         <div class="status-led">
             <span id="statusText">Putus</span>
             <span class="led" id="ledIndicator"></span>
