@@ -1229,12 +1229,12 @@ function resetAllUI() {
 function updateProgress(percent) {
     progressContainer.classList.add('active');
     progressBar.style.width = percent + '%';
-    if (percent >= 100) {
-        setTimeout(() => {
-            progressContainer.classList.remove('active');
-            progressBar.style.width = '0%';
-        }, 500);
-    }
+    // if (percent >= 100) {
+    //     setTimeout(() => {
+    //         progressContainer.classList.remove('active');
+    //         progressBar.style.width = '0%';
+    //     }, 500);
+    // }
 }
 
 function updateMTUInfo(packets = 0) {
