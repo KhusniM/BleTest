@@ -1280,7 +1280,7 @@ function handleBmsData(buffer) {
         return;
     }
     
-    if (dataLength > 200 && isBMSHeader(bytes)) {
+    if (dataLength > 190 && isBMSHeader(bytes)) {
         if (logMode === 'detail') {
             logTerminal(`📦 Data besar terdeteksi: ${dataLength} bytes (langsung diproses)`, 'packet', true);
         }
