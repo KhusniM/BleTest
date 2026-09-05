@@ -595,6 +595,7 @@ const LOG_MODE_LABELS = {
 let lastBMSData = null;
 let lastLogTime = 0;
 const LOG_INTERVAL = 1000; // 1 detik
+let lastLoggedDataHash = '';
 
 // ============================================================
 // 3. JK BMS PARSER
@@ -871,25 +872,27 @@ class JKBMSParser {
 }
 
 // ============================================================
-// 4. FUNGSI LOG TERMINAL DENGAN MODE
+// 4. FUNGSI LOG TERMINAL DENGAN MODE (DIPERBAIKI)
 // ============================================================
 function logTerminal(message, type = 'info', forceShow = false) {
     // Filter berdasarkan mode
     if (!forceShow) {
         if (logMode === 'detail') {
-            // Detail: HANYA tampilkan raw data
-            if (type !== 'raw' && type !== 'hex_rx' && type !== 'hex_tx' && type !== 'error') {
+            // Detail: Tampilkan raw, hex, error, dan info penting
+            const allowedDetail = ['raw', 'hex_rx', 'hex_tx', 'error', 'success', 'warning', 'packet', 'header'];
+            if (!allowedDetail.includes(type)) {
                 return;
             }
         } else {
             // Ringkas & Normal: JANGAN tampilkan raw data
-            if (type === 'raw' || type === 'hex_rx' || type === 'ping') {
+            if (type === 'raw') {
                 return;
             }
             
             // Ringkas: hanya tampilkan ringkasan
             if (logMode === 'ringkas') {
-                if (type !== 'log-ringkas' && type !== 'success' && type !== 'error' && type !== 'warning' && type !== 'info') {
+                const allowedRingkas = ['log-ringkas', 'success', 'error', 'warning', 'info', 'packet'];
+                if (!allowedRingkas.includes(type)) {
                     return;
                 }
             }
@@ -921,14 +924,27 @@ function logTerminal(message, type = 'info', forceShow = false) {
         'log-ringkas': `<span class="time">[${time}]</span> <span class="log-ringkas">📋 ${message}</span>`,
         'log-normal': `<span class="time">[${time}]</span> <span class="log-normal">📋 ${message}</span>`,
         'log-detail': `<span class="time">[${time}]</span> <span class="log-detail">📋 ${message}</span>`,
+        'info': `<span class="time">[${time}]</span> <span class="info">ℹ️ ${message}</span>`,
     };
     
     entry.innerHTML = typeMap[type] || `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
     
     terminalLog.appendChild(entry);
-    terminalLog.scrollTop = terminalLog.scrollHeight;
-    if (terminalLog.children.length > 500) {
-        terminalLog.removeChild(terminalLog.children[0]);
+    
+    // Scroll otomatis dengan requestAnimationFrame
+    requestAnimationFrame(() => {
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+    });
+    
+    // Batasi jumlah log - hapus dari awal jika terlalu banyak
+    const MAX_LOG_ENTRIES = 300;
+    if (terminalLog.children.length > MAX_LOG_ENTRIES) {
+        const toRemove = Math.min(50, terminalLog.children.length - MAX_LOG_ENTRIES);
+        for (let i = 0; i < toRemove; i++) {
+            if (terminalLog.children[0]) {
+                terminalLog.removeChild(terminalLog.children[0]);
+            }
+        }
     }
 }
 
@@ -1310,17 +1326,28 @@ function showNormalLog(result) {
 }
 
 // ============================================================
-// 13. PERIODIC UPDATE LOG (SETIAP 1 DETIK)
+// 13. PERIODIC UPDATE LOG (DIPERBAIKI - CEK DUPLIKAT)
 // ============================================================
+function getDataHash(data) {
+    if (!data) return '';
+    const s = data.status;
+    return `${s.totalVoltage?.toFixed(2)}|${s.current?.toFixed(2)}|${s.soc}|${s.mosTemp?.toFixed(1)}`;
+}
+
 function periodicLogUpdate() {
     if (!lastBMSData) return;
     
     const now = Date.now();
     if (now - lastLogTime >= LOG_INTERVAL) {
-        if (logMode === 'ringkas') {
-            showRingkasLog(lastBMSData);
-        } else if (logMode === 'normal') {
-            showNormalLog(lastBMSData);
+        // Cek apakah data berubah sebelum log
+        const currentHash = getDataHash(lastBMSData);
+        if (currentHash !== lastLoggedDataHash) {
+            if (logMode === 'ringkas') {
+                showRingkasLog(lastBMSData);
+            } else if (logMode === 'normal') {
+                showNormalLog(lastBMSData);
+            }
+            lastLoggedDataHash = currentHash;
         }
         lastLogTime = now;
     }
@@ -1527,7 +1554,7 @@ async function sendBmsInfo() {
 }
 
 // ============================================================
-// 18. LOG MODE TOGGLE
+// 18. LOG MODE TOGGLE (DIPERBAIKI)
 // ============================================================
 function toggleLogMode() {
     const currentIndex = LOG_MODES.indexOf(logMode);
@@ -1558,7 +1585,8 @@ function toggleLogMode() {
     }
     
     // Bersihkan terminal saat ganti mode
-    // terminalLog.innerHTML = '';
+    terminalLog.innerHTML = '';
+    lastLoggedDataHash = '';
     
     logTerminal(`📋 Log mode: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
     
@@ -1567,7 +1595,7 @@ function toggleLogMode() {
     } else if (logMode === 'normal') {
         logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap)`, 'log-normal', true);
     } else {
-        logTerminal(`📋 Detail: hanya tampilkan RAW data (tanpa update periodik)`, 'log-detail', true);
+        logTerminal(`📋 Detail: tampilkan RAW data + info penting`, 'log-detail', true);
     }
 }
 
@@ -1593,6 +1621,7 @@ function disconnect() {
     resetCollection();
     updateMTUInfo(0);
     lastBMSData = null;
+    lastLoggedDataHash = '';
     logTerminal('⛔ Koneksi diputus', 'error', true);
 }
 
@@ -1600,6 +1629,7 @@ function resetTerminal() {
     terminalLog.innerHTML = '';
     lastBMSData = null;
     lastLogTime = 0;
+    lastLoggedDataHash = '';
     logTerminal('🔄 Terminal di-reset', 'info', true);
     logTerminal(`📋 Log mode: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
     resetAllUI();
@@ -1646,9 +1676,18 @@ inputField.addEventListener('keydown', (e) => {
 
 disconnectBtn.addEventListener('click', disconnect);
 
+// Double click pada terminal untuk clear
+terminalLog.addEventListener('dblclick', () => {
+    if (confirm('Bersihkan terminal log?')) {
+        resetTerminal();
+    }
+});
+
 // ============================================================
 // 22. INISIALISASI
 // ============================================================
+lastLoggedDataHash = '';
+
 logTerminal('🚀 BMS Terminal v3 - Log Mode siap', 'info', true);
 logTerminal('💡 Pastikan Bluetooth HP aktif', 'info', true);
 logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info', true);
@@ -1659,7 +1698,7 @@ if (logMode === 'ringkas') {
 } else if (logMode === 'normal') {
     logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap)`, 'log-normal', true);
 } else {
-    logTerminal(`📋 Detail: hanya tampilkan RAW data`, 'log-detail', true);
+    logTerminal(`📋 Detail: tampilkan RAW data + info penting`, 'log-detail', true);
 }
 
 updateMTUInfo(0);
