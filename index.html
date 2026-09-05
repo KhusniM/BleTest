@@ -306,6 +306,9 @@
         .terminal-scroll .log-normal { color: #81c784; }
         .terminal-scroll .log-detail { color: #ffcc80; }
         .terminal-scroll .log-length { color: #ffd54f; font-weight: bold; }
+        .terminal-scroll .ascii-data { color: #aed581; font-weight: bold; }
+        .terminal-scroll .ascii-printable { color: #81c784; }
+        .terminal-scroll .ascii-nonprintable { color: #ff6b6b; }
 
         .terminal-footer {
             display: flex;
@@ -981,18 +984,70 @@ class JKBMSParser {
 }
 
 // ============================================================
-// 4. FUNGSI LOG TERMINAL DENGAN MODE (DIPERBAIKI)
+// 4. FUNGSI ASCII PARSER (BARU)
+// ============================================================
+function bytesToAsciiWithStatus(bytes) {
+    let result = '';
+    let printableCount = 0;
+    let nonPrintableCount = 0;
+    let hasNonPrintable = false;
+    
+    for (let i = 0; i < bytes.length; i++) {
+        const byte = bytes[i];
+        // Printable ASCII: 32-126 (spasi sampai ~)
+        // Selain itu: non-printable
+        if (byte >= 32 && byte <= 126) {
+            result += String.fromCharCode(byte);
+            printableCount++;
+        } else if (byte === 0) {
+            result += '␀'; // Null character
+            nonPrintableCount++;
+            hasNonPrintable = true;
+        } else if (byte === 9) {
+            result += '␉'; // Tab
+            nonPrintableCount++;
+            hasNonPrintable = true;
+        } else if (byte === 10) {
+            result += '␊'; // LF
+            nonPrintableCount++;
+            hasNonPrintable = true;
+        } else if (byte === 13) {
+            result += '␍'; // CR
+            nonPrintableCount++;
+            hasNonPrintable = true;
+        } else if (byte < 32) {
+            result += '␀'; // Other control characters
+            nonPrintableCount++;
+            hasNonPrintable = true;
+        } else {
+            result += '�'; // Non-ASCII (128-255)
+            nonPrintableCount++;
+            hasNonPrintable = true;
+        }
+    }
+    
+    return {
+        ascii: result,
+        printableCount: printableCount,
+        nonPrintableCount: nonPrintableCount,
+        hasNonPrintable: hasNonPrintable,
+        isPrintable: nonPrintableCount === 0 && bytes.length > 0
+    };
+}
+
+// ============================================================
+// 5. FUNGSI LOG TERMINAL DENGAN MODE (DIPERBAIKI)
 // ============================================================
 function logTerminal(message, type = 'info', forceShow = false) {
     // Filter berdasarkan mode
     if (!forceShow) {
         if (logMode === 'detail') {
-            const allowedDetail = ['raw', 'hex_rx', 'hex_tx', 'error', 'success', 'warning', 'packet', 'header'];
+            const allowedDetail = ['raw', 'hex_rx', 'hex_tx', 'error', 'success', 'warning', 'packet', 'header', 'ascii'];
             if (!allowedDetail.includes(type)) {
                 return;
             }
         } else if (logMode === 'ringkas') {
-            if (type !== 'log-length' && type !== 'error' && type !== 'success' && type !== 'info') {
+            if (type !== 'log-length' && type !== 'error' && type !== 'success' && type !== 'info' && type !== 'ascii') {
                 return;
             }
         } else {
@@ -1030,6 +1085,7 @@ function logTerminal(message, type = 'info', forceShow = false) {
         'log-detail': `<span class="time">[${time}]</span> <span class="log-detail">📋 ${message}</span>`,
         'log-length': `<span class="time">[${time}]</span> <span class="log-length">📏 ${message}</span>`,
         'info': `<span class="time">[${time}]</span> <span class="info">ℹ️ ${message}</span>`,
+        'ascii': `<span class="time">[${time}]</span> <span class="ascii-data">🔤 ${message}</span>`,
     };
     
     line.innerHTML = typeMap[type] || `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
@@ -1060,7 +1116,7 @@ function logTerminal(message, type = 'info', forceShow = false) {
 }
 
 // ============================================================
-// 5. KONVERSI DATA
+// 6. FUNGSI KONVERSI
 // ============================================================
 function toHexString(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -1096,7 +1152,7 @@ function textToBytes(text) {
 }
 
 // ============================================================
-// 6. UPDATE UI
+// 7. UPDATE UI
 // ============================================================
 function updateAllUI(result) {
     const s = result.status;
@@ -1224,17 +1280,11 @@ function resetAllUI() {
 }
 
 // ============================================================
-// 7. UPDATE PROGRESS & MTU INFO
+// 8. UPDATE PROGRESS & MTU INFO
 // ============================================================
 function updateProgress(percent) {
     progressContainer.classList.add('active');
     progressBar.style.width = percent + '%';
-    // if (percent >= 100) {
-    //     setTimeout(() => {
-    //         progressContainer.classList.remove('active');
-    //         progressBar.style.width = '0%';
-    //     }, 500);
-    // }
 }
 
 function updateMTUInfo(packets = 0) {
@@ -1244,7 +1294,7 @@ function updateMTUInfo(packets = 0) {
 }
 
 // ============================================================
-// 8. FUNGSI DETEKSI
+// 9. FUNGSI DETEKSI
 // ============================================================
 function isPing(bytes) {
     if (bytes.length !== 4) return false;
@@ -1259,12 +1309,25 @@ function isBMSHeader(bytes) {
 }
 
 // ============================================================
-// 9. PROSES DATA MASUK
+// 10. PROSES DATA MASUK (DENGAN ASCII)
 // ============================================================
 function handleBmsData(buffer) {
     const bytes = new Uint8Array(buffer);
     const dataLength = bytes.length;
     const hexStr = toHexString(buffer);
+    
+    // --- TAMPILKAN ASCII DI SEMUA MODE ---
+    const asciiResult = bytesToAsciiWithStatus(bytes);
+    let asciiStatus = '';
+    if (asciiResult.isPrintable) {
+        asciiStatus = '✅ Semua printable';
+    } else if (asciiResult.nonPrintableCount > 0) {
+        asciiStatus = `⚠️ ${asciiResult.nonPrintableCount} non-printable`;
+    }
+    const asciiDisplay = asciiResult.ascii || '(kosong)';
+    
+    // Tampilkan ASCII di semua mode (forceShow = true)
+    logTerminal(`🔤 ASCII: "${asciiDisplay}" ${asciiStatus}`, 'ascii', true);
     
     // Detail mode: tampilkan semua raw data
     if (logMode === 'detail') {
@@ -1362,7 +1425,7 @@ function handleBmsData(buffer) {
 }
 
 // ============================================================
-// 10. RESET COLLECTOR
+// 11. RESET COLLECTOR
 // ============================================================
 function resetCollection() {
     isCollecting = false;
@@ -1376,7 +1439,7 @@ function resetCollection() {
 }
 
 // ============================================================
-// 11. PROSES DATA BMS
+// 12. PROSES DATA BMS
 // ============================================================
 function processBMSData(data) {
     if (data.length === 0) return null;
@@ -1404,7 +1467,7 @@ function processBMSData(data) {
 }
 
 // ============================================================
-// 12. SHOW LOG BERDASARKAN MODE
+// 13. SHOW LOG BERDASARKAN MODE
 // ============================================================
 function showRingkasLog(result) {
     // Ringkas hanya menampilkan length, sudah ditangani di handleBmsData
@@ -1427,7 +1490,7 @@ function showNormalLog(result) {
 }
 
 // ============================================================
-// 13. PERIODIC UPDATE LOG
+// 14. PERIODIC UPDATE LOG
 // ============================================================
 function getDataHash(data) {
     if (!data) return '';
@@ -1455,7 +1518,7 @@ function periodicLogUpdate() {
 }
 
 // ============================================================
-// 14. KONEKSI BLUETOOTH
+// 15. KONEKSI BLUETOOTH
 // ============================================================
 async function connectBle() {
     try {
@@ -1530,7 +1593,7 @@ async function connectBle() {
 }
 
 // ============================================================
-// 15. FUNGSI KIRIM
+// 16. FUNGSI KIRIM
 // ============================================================
 async function sendFlexibleData(data, isHex = true, showProgress = true) {
     if (!isConnected || !characteristic) {
@@ -1615,7 +1678,7 @@ async function sendFlexibleData(data, isHex = true, showProgress = true) {
 }
 
 // ============================================================
-// 16. TOMBOL KIRIM
+// 17. TOMBOL KIRIM
 // ============================================================
 async function sendData() {
     const text = inputField.value.trim();
@@ -1641,7 +1704,7 @@ async function sendData() {
 }
 
 // ============================================================
-// 17. KIRIM LAINNYA
+// 18. KIRIM LAINNYA
 // ============================================================
 async function sendDevInfo() {
     const hexData = 'AA 55 90 EB 97 00 00 00 00 00 00 00 00 00 00 00 00 00 00 11';
@@ -1654,7 +1717,7 @@ async function sendBmsInfo() {
 }
 
 // ============================================================
-// 18. LOG MODE TOGGLE
+// 19. LOG MODE TOGGLE
 // ============================================================
 function toggleLogMode() {
     const currentIndex = LOG_MODES.indexOf(logMode);
@@ -1695,16 +1758,16 @@ function toggleLogMode() {
     logTerminal(`📋 Log mode: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
     
     if (logMode === 'ringkas') {
-        logTerminal(`📋 Ringkas: hanya menampilkan panjang data yang diterima`, 'log-length', true);
+        logTerminal(`📋 Ringkas: hanya menampilkan panjang data yang diterima + ASCII`, 'log-length', true);
     } else if (logMode === 'normal') {
-        logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap)`, 'log-normal', true);
+        logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap) + ASCII`, 'log-normal', true);
     } else {
-        logTerminal(`📋 Detail: tampilkan RAW data + info penting`, 'log-detail', true);
+        logTerminal(`📋 Detail: tampilkan RAW data + info penting + ASCII`, 'log-detail', true);
     }
 }
 
 // ============================================================
-// 19. PUTUS KONEKSI & RESET
+// 20. PUTUS KONEKSI & RESET
 // ============================================================
 function disconnect() {
     if (device && device.gatt) {
@@ -1744,7 +1807,7 @@ function resetTerminal() {
 }
 
 // ============================================================
-// 20. UPDATE STATUS
+// 21. UPDATE STATUS
 // ============================================================
 function updateStatus(connected) {
     if (connected) {
@@ -1757,7 +1820,7 @@ function updateStatus(connected) {
 }
 
 // ============================================================
-// 21. EVENT LISTENER
+// 22. EVENT LISTENER
 // ============================================================
 scanBtn.addEventListener('click', connectBle);
 devInfoBtn.addEventListener('click', sendDevInfo);
@@ -1784,7 +1847,7 @@ inputField.addEventListener('keydown', (e) => {
 disconnectBtn.addEventListener('click', disconnect);
 
 // ============================================================
-// 22. INISIALISASI
+// 23. INISIALISASI
 // ============================================================
 lastLoggedDataHash = '';
 logEntryCount = terminalLog.children.length;
@@ -1798,11 +1861,11 @@ logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info', true);
 logTerminal(`📋 Mode saat ini: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
 
 if (logMode === 'ringkas') {
-    logTerminal(`📋 Ringkas: hanya menampilkan panjang data yang diterima`, 'log-length', true);
+    logTerminal(`📋 Ringkas: hanya menampilkan panjang data yang diterima + ASCII`, 'log-length', true);
 } else if (logMode === 'normal') {
-    logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap)`, 'log-normal', true);
+    logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap) + ASCII`, 'log-normal', true);
 } else {
-    logTerminal(`📋 Detail: tampilkan RAW data + info penting`, 'log-detail', true);
+    logTerminal(`📋 Detail: tampilkan RAW data + info penting + ASCII`, 'log-detail', true);
 }
 
 updateMTUInfo(0);
