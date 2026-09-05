@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>BMS Terminal - Log Mode</title>
+    <title>BMS To CAN</title>
     <style>
         * {
             margin: 0;
@@ -80,6 +80,7 @@
             background: rgba(0, 20, 40, 0.3);
             border-radius: 8px;
             border: 1px solid rgba(0, 255, 255, 0.05);
+            word-break: break-all;
         }
         .mtu-info span {
             color: #4fc3f7;
@@ -186,53 +187,150 @@
         .dashboard-card.yellow .value { color: #ffd54f; }
         .dashboard-card.pink .value { color: #f48fb1; }
 
-        .terminal {
+        /* ============================================================
+           TERMINAL BOX - DIPERBAIKI
+           ============================================================ */
+        .terminal-wrapper {
             background: rgba(0, 10, 20, 0.7);
             border-radius: 16px;
-            padding: 14px;
-            height: 160px;
-            overflow-y: auto;
-            margin-bottom: 12px;
             border: 1px solid rgba(0, 255, 255, 0.06);
+            margin-bottom: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 14px;
+            background: rgba(0, 20, 40, 0.5);
+            border-bottom: 1px solid rgba(0, 255, 255, 0.05);
+            font-size: 9px;
+            color: #4a6a8a;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .terminal-header .title {
+            color: #6a8a9a;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .terminal-header .badge {
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 8px;
+            font-weight: 600;
+            background: rgba(0, 255, 255, 0.08);
+            color: #4fc3f7;
+        }
+
+        .terminal-header .badge.ringkas { background: rgba(77, 208, 225, 0.2); color: #4dd0e1; }
+        .terminal-header .badge.normal { background: rgba(129, 199, 132, 0.2); color: #81c784; }
+        .terminal-header .badge.detail { background: rgba(255, 204, 128, 0.2); color: #ffcc80; }
+
+        .terminal-header .count {
+            color: #3a5a7a;
+            font-size: 8px;
+        }
+
+        .terminal-scroll {
+            height: 180px;
+            overflow-y: auto;
+            padding: 10px 14px;
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
             font-size: 9px;
-            line-height: 1.5;
+            line-height: 1.6;
             color: #8bb4d8;
             scroll-behavior: smooth;
+            word-wrap: break-word;
+            overflow-x: hidden;
         }
 
-        .terminal::-webkit-scrollbar {
-            width: 4px;
+        .terminal-scroll::-webkit-scrollbar {
+            width: 5px;
         }
-        .terminal::-webkit-scrollbar-track {
-            background: transparent;
+        .terminal-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 20, 40, 0.3);
+            border-radius: 10px;
         }
-        .terminal::-webkit-scrollbar-thumb {
+        .terminal-scroll::-webkit-scrollbar-thumb {
             background: #1a3a5a;
-            border-radius: 20px;
+            border-radius: 10px;
+        }
+        .terminal-scroll::-webkit-scrollbar-thumb:hover {
+            background: #2a4a6a;
         }
 
-        .terminal .time { color: #3a6a8a; margin-right: 4px; }
-        .terminal .info { color: #a0b8d0; }
-        .terminal .error { color: #ff6b7a; }
-        .terminal .warning { color: #ffd93d; }
-        .terminal .success { color: #6fcf97; }
-        .terminal .hex { color: #bb86fc; font-weight: bold; }
-        .terminal .hex-dev { color: #4fc3f7; font-weight: bold; }
-        .terminal .hex-bms { color: #ffd54f; font-weight: bold; }
-        .terminal .progress { color: #ffab40; }
-        .terminal .packet-info { color: #b39ddb; }
-        .terminal .ping { color: #78909c; }
-        .terminal .data { color: #ffffff; }
-        .terminal .header-info { color: #4dd0e1; }
-        .terminal .raw-data { color: #ffcc80; font-size: 8px; word-break: break-all; }
-        .terminal .terminator { color: #ff6b6b; }
-        .terminal .cell-data { color: #81c784; }
-        .terminal .temp-data { color: #ffab91; }
-        .terminal .stat-data { color: #90caf9; }
-        .terminal .log-ringkas { color: #4dd0e1; font-weight: bold; }
-        .terminal .log-normal { color: #81c784; }
-        .terminal .log-detail { color: #ffcc80; }
+        .terminal-scroll .line {
+            padding: 1px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            word-break: break-all;
+        }
+
+        .terminal-scroll .line:last-child {
+            border-bottom: none;
+        }
+
+        .terminal-scroll .time { 
+            color: #3a6a8a; 
+            margin-right: 6px;
+            font-size: 8px;
+            opacity: 0.8;
+        }
+        .terminal-scroll .info { color: #a0b8d0; }
+        .terminal-scroll .error { color: #ff6b7a; }
+        .terminal-scroll .warning { color: #ffd93d; }
+        .terminal-scroll .success { color: #6fcf97; }
+        .terminal-scroll .hex { color: #bb86fc; font-weight: bold; }
+        .terminal-scroll .hex-dev { color: #4fc3f7; font-weight: bold; }
+        .terminal-scroll .hex-bms { color: #ffd54f; font-weight: bold; }
+        .terminal-scroll .progress { color: #ffab40; }
+        .terminal-scroll .packet-info { color: #b39ddb; }
+        .terminal-scroll .ping { color: #78909c; }
+        .terminal-scroll .data { color: #ffffff; }
+        .terminal-scroll .header-info { color: #4dd0e1; }
+        .terminal-scroll .raw-data { 
+            color: #ffcc80; 
+            font-size: 8px; 
+            word-break: break-all;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .terminal-scroll .terminator { color: #ff6b6b; }
+        .terminal-scroll .cell-data { color: #81c784; }
+        .terminal-scroll .temp-data { color: #ffab91; }
+        .terminal-scroll .stat-data { color: #90caf9; }
+        .terminal-scroll .log-ringkas { color: #4dd0e1; font-weight: bold; }
+        .terminal-scroll .log-normal { color: #81c784; }
+        .terminal-scroll .log-detail { color: #ffcc80; }
+        .terminal-scroll .log-length { color: #ffd54f; font-weight: bold; }
+
+        .terminal-footer {
+            display: flex;
+            justify-content: flex-end;
+            padding: 4px 14px 6px;
+            background: rgba(0, 20, 40, 0.3);
+            border-top: 1px solid rgba(0, 255, 255, 0.03);
+            font-size: 8px;
+            color: #2a4a5a;
+        }
+
+        .terminal-footer .clear-btn {
+            background: none;
+            border: none;
+            color: #4a6a8a;
+            cursor: pointer;
+            font-size: 8px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        .terminal-footer .clear-btn:hover {
+            color: #ff6b6b;
+            background: rgba(255, 60, 60, 0.1);
+        }
 
         .progress-container {
             width: 100%;
@@ -273,6 +371,7 @@
             font-size: 14px;
             outline: none;
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            min-width: 0;
         }
 
         .input-row input::placeholder {
@@ -376,17 +475,6 @@
             border-color: rgba(156, 39, 176, 0.4);
         }
 
-        .log-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 4px;
-        }
-        .log-indicator.ringkas { background: #4dd0e1; }
-        .log-indicator.normal { background: #81c784; }
-        .log-indicator.detail { background: #ffcc80; }
-
         @media (max-width: 420px) {
             .container { padding: 16px 12px 20px; }
             .bms-grid { gap: 6px; }
@@ -397,7 +485,9 @@
             .input-row input { min-width: 100%; }
             .btn-group { width: 100%; }
             .btn-group .btn { flex: 1; font-size: 10px; padding: 8px 6px; }
-            .terminal { height: 120px; font-size: 8px; }
+            .terminal-scroll { height: 140px; font-size: 8px; padding: 8px 10px; }
+            .terminal-header .title { font-size: 8px; }
+            .terminal-header .badge { font-size: 7px; padding: 1px 8px; }
         }
     </style>
 </head>
@@ -405,7 +495,7 @@
 
 <div class="container">
     <div class="header">
-        <h1>⚡ BMS Terminal v3</h1>
+        <h1>⚡ BMS to CAN</h1>
         <div class="status-led">
             <span id="statusText">Putus</span>
             <span class="led" id="ledIndicator"></span>
@@ -492,10 +582,24 @@
         <div class="progress-bar" id="progressBar"></div>
     </div>
 
-    <div class="terminal" id="terminalLog">
-        <div><span class="time">[system]</span> <span class="info">▶ BMS Terminal v3 - Log Mode</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Klik "Log Mode" untuk ganti mode</span></div>
-        <div><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
+    <!-- ============================================================
+    TERMINAL BOX - DIPERBAIKI
+    ============================================================ -->
+    <div class="terminal-wrapper">
+        <div class="terminal-header">
+            <span class="title">📟 TERMINAL LOG</span>
+            <span class="badge" id="terminalBadge">Normal</span>
+            <span class="count" id="terminalCount">0 lines</span>
+        </div>
+        <div class="terminal-scroll" id="terminalLog">
+            <div class="line"><span class="time">[system]</span> <span class="info">▶ BMS Terminal v3 - Log Mode</span></div>
+            <div class="line"><span class="time">[system]</span> <span class="info">▶ Klik "Log Mode" untuk ganti mode</span></div>
+            <div class="line"><span class="time">[system]</span> <span class="info">▶ Klik "Cari BMS" untuk mulai</span></div>
+        </div>
+        <div class="terminal-footer">
+            <span style="flex:1;color:#2a4a5a;font-size:7px;">🔽 scroll untuk melihat</span>
+            <button class="clear-btn" id="clearTerminalBtn">✕ Clear</button>
+        </div>
     </div>
 
     <div class="input-row">
@@ -518,6 +622,9 @@
 // 1. ELEMEN DOM
 // ============================================================
 const terminalLog = document.getElementById('terminalLog');
+const terminalBadge = document.getElementById('terminalBadge');
+const terminalCount = document.getElementById('terminalCount');
+const clearTerminalBtn = document.getElementById('clearTerminalBtn');
 const inputField = document.getElementById('inputField');
 const sendBtn = document.getElementById('sendBtn');
 const scanBtn = document.getElementById('scanBtn');
@@ -595,6 +702,9 @@ const LOG_MODE_LABELS = {
 let lastBMSData = null;
 let lastLogTime = 0;
 const LOG_INTERVAL = 1000; // 1 detik
+let lastLoggedDataHash = '';
+let lastDataLength = 0;
+let logEntryCount = 0;
 
 // ============================================================
 // 3. JK BMS PARSER
@@ -871,33 +981,30 @@ class JKBMSParser {
 }
 
 // ============================================================
-// 4. FUNGSI LOG TERMINAL DENGAN MODE
+// 4. FUNGSI LOG TERMINAL DENGAN MODE (DIPERBAIKI)
 // ============================================================
 function logTerminal(message, type = 'info', forceShow = false) {
     // Filter berdasarkan mode
     if (!forceShow) {
         if (logMode === 'detail') {
-            // Detail: HANYA tampilkan raw data
-            if (type !== 'raw' && type !== 'hex_rx' && type !== 'hex_tx' && type !== 'error') {
+            const allowedDetail = ['raw', 'hex_rx', 'hex_tx', 'error', 'success', 'warning', 'packet', 'header'];
+            if (!allowedDetail.includes(type)) {
+                return;
+            }
+        } else if (logMode === 'ringkas') {
+            if (type !== 'log-length' && type !== 'error' && type !== 'success' && type !== 'info') {
                 return;
             }
         } else {
-            // Ringkas & Normal: JANGAN tampilkan raw data
-            if (type === 'raw' || type === 'hex_rx' || type === 'ping') {
+            if (type === 'raw') {
                 return;
-            }
-            
-            // Ringkas: hanya tampilkan ringkasan
-            if (logMode === 'ringkas') {
-                if (type !== 'log-ringkas' && type !== 'success' && type !== 'error' && type !== 'warning' && type !== 'info') {
-                    return;
-                }
             }
         }
     }
 
     const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
-    const entry = document.createElement('div');
+    const line = document.createElement('div');
+    line.className = 'line';
     
     const typeMap = {
         'hex_rx': `<span class="time">[${time}]</span> <span class="hex">📥 ${message}</span>`,
@@ -921,14 +1028,34 @@ function logTerminal(message, type = 'info', forceShow = false) {
         'log-ringkas': `<span class="time">[${time}]</span> <span class="log-ringkas">📋 ${message}</span>`,
         'log-normal': `<span class="time">[${time}]</span> <span class="log-normal">📋 ${message}</span>`,
         'log-detail': `<span class="time">[${time}]</span> <span class="log-detail">📋 ${message}</span>`,
+        'log-length': `<span class="time">[${time}]</span> <span class="log-length">📏 ${message}</span>`,
+        'info': `<span class="time">[${time}]</span> <span class="info">ℹ️ ${message}</span>`,
     };
     
-    entry.innerHTML = typeMap[type] || `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
+    line.innerHTML = typeMap[type] || `<span class="time">[${time}]</span> <span class="${type}">${message}</span>`;
     
-    terminalLog.appendChild(entry);
-    terminalLog.scrollTop = terminalLog.scrollHeight;
-    if (terminalLog.children.length > 500) {
-        terminalLog.removeChild(terminalLog.children[0]);
+    terminalLog.appendChild(line);
+    logEntryCount++;
+    
+    // Update counter
+    terminalCount.textContent = `${logEntryCount} lines`;
+    
+    // Scroll otomatis
+    requestAnimationFrame(() => {
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+    });
+    
+    // Batasi jumlah log - hapus dari awal jika terlalu banyak
+    const MAX_LOG_ENTRIES = 500;
+    if (terminalLog.children.length > MAX_LOG_ENTRIES) {
+        const toRemove = Math.min(100, terminalLog.children.length - MAX_LOG_ENTRIES);
+        for (let i = 0; i < toRemove; i++) {
+            if (terminalLog.children[0]) {
+                terminalLog.removeChild(terminalLog.children[0]);
+            }
+        }
+        logEntryCount = terminalLog.children.length;
+        terminalCount.textContent = `${logEntryCount} lines`;
     }
 }
 
@@ -1102,12 +1229,12 @@ function resetAllUI() {
 function updateProgress(percent) {
     progressContainer.classList.add('active');
     progressBar.style.width = percent + '%';
-    if (percent >= 100) {
-        setTimeout(() => {
-            progressContainer.classList.remove('active');
-            progressBar.style.width = '0%';
-        }, 500);
-    }
+    // if (percent >= 100) {
+    //     setTimeout(() => {
+    //         progressContainer.classList.remove('active');
+    //         progressBar.style.width = '0%';
+    //     }, 500);
+    // }
 }
 
 function updateMTUInfo(packets = 0) {
@@ -1144,7 +1271,45 @@ function handleBmsData(buffer) {
         logTerminal(`📥 ${hexStr} (${dataLength} bytes)`, 'raw', true);
     }
     
+    // Ringkas mode: tampilkan panjang data
+    if (logMode === 'ringkas') {
+        logTerminal(`Receive Data Length : ${dataLength} bytes`, 'log-length', true);
+    }
+    
     if (dataLength <= 4) {
+        return;
+    }
+    
+    if (dataLength > 190 && isBMSHeader(bytes)) {
+        if (logMode === 'detail') {
+            logTerminal(`📦 Data besar terdeteksi: ${dataLength} bytes (langsung diproses)`, 'packet', true);
+        }
+        
+        resetCollection();
+        
+        const result = processBMSData(Array.from(bytes));
+        if (result) {
+            lastBMSData = result;
+            lastLogTime = Date.now();
+            
+            if (logMode === 'normal') {
+                showNormalLog(result);
+            }
+            
+            if (logMode !== 'ringkas') {
+                logTerminal(`✅ Data ${dataLength} bytes berhasil diparsing`, 'success', true);
+            }
+        } else {
+            if (logMode !== 'ringkas') {
+                logTerminal(`❌ Gagal memparse data ${dataLength} bytes`, 'error', true);
+            }
+        }
+        
+        updateProgress(100);
+        setTimeout(() => {
+            updateProgress(0);
+        }, 500);
+        
         return;
     }
     
@@ -1177,16 +1342,12 @@ function handleBmsData(buffer) {
             
             updateProgress(70);
             
-            // Proses data dan simpan untuk update periodik
             const result = processBMSData(bmsBuffer);
             if (result) {
                 lastBMSData = result;
                 lastLogTime = Date.now();
                 
-                // Langsung tampilkan log pertama
-                if (logMode === 'ringkas') {
-                    showRingkasLog(result);
-                } else if (logMode === 'normal') {
+                if (logMode === 'normal') {
                     showNormalLog(result);
                 }
             }
@@ -1235,7 +1396,6 @@ function processBMSData(data) {
             return result;
         }
     } catch (parseError) {
-        // Error hanya di detail mode
         if (logMode === 'detail') {
             logTerminal(`⚠️ Parse error: ${parseError.message}`, 'error', true);
         }
@@ -1247,12 +1407,7 @@ function processBMSData(data) {
 // 12. SHOW LOG BERDASARKAN MODE
 // ============================================================
 function showRingkasLog(result) {
-    const s = result.status;
-    logTerminal(
-        `⚡ ${s.totalVoltage.toFixed(2)}V ${s.current.toFixed(2)}A | SOC ${s.soc}% | ${s.powerStatus} | ` +
-        `Cells: ${result.header.totalCells} | Temp: ${s.mosTemp.toFixed(1)}°C | Cycle: ${s.cycleCount}`,
-        'log-ringkas', true
-    );
+    // Ringkas hanya menampilkan length, sudah ditangani di handleBmsData
 }
 
 function showNormalLog(result) {
@@ -1272,17 +1427,28 @@ function showNormalLog(result) {
 }
 
 // ============================================================
-// 13. PERIODIC UPDATE LOG (SETIAP 1 DETIK)
+// 13. PERIODIC UPDATE LOG
 // ============================================================
+function getDataHash(data) {
+    if (!data) return '';
+    const s = data.status;
+    return `${s.totalVoltage?.toFixed(2)}|${s.current?.toFixed(2)}|${s.soc}|${s.mosTemp?.toFixed(1)}`;
+}
+
 function periodicLogUpdate() {
     if (!lastBMSData) return;
     
     const now = Date.now();
     if (now - lastLogTime >= LOG_INTERVAL) {
-        if (logMode === 'ringkas') {
-            showRingkasLog(lastBMSData);
-        } else if (logMode === 'normal') {
-            showNormalLog(lastBMSData);
+        const currentHash = getDataHash(lastBMSData);
+        if (currentHash !== lastLoggedDataHash) {
+            if (logMode === 'ringkas') {
+                const dataLen = lastBMSData.header?.dataLength || 0;
+                logTerminal(`Receive Data Length : ${dataLen} bytes`, 'log-length', true);
+            } else if (logMode === 'normal') {
+                showNormalLog(lastBMSData);
+            }
+            lastLoggedDataHash = currentHash;
         }
         lastLogTime = now;
     }
@@ -1344,7 +1510,6 @@ async function connectBle() {
             });
             logTerminal('📡 Notifikasi aktif', 'info', true);
             
-            // Mulai periodic update
             if (window.logInterval) clearInterval(window.logInterval);
             window.logInterval = setInterval(periodicLogUpdate, 500);
         } else {
@@ -1499,14 +1664,16 @@ function toggleLogMode() {
     logModeDisplay.textContent = LOG_MODE_LABELS[logMode];
     logModeBtn.innerHTML = `📋 ${LOG_MODE_LABELS[logMode]}`;
     
-    // Update interval display
+    // Update badge
+    terminalBadge.textContent = LOG_MODE_LABELS[logMode];
+    terminalBadge.className = 'badge ' + logMode;
+    
     if (logMode === 'detail') {
         updateInterval.textContent = 'RAW';
     } else {
         updateInterval.textContent = '1s';
     }
     
-    // Update class
     logModeBtn.className = 'btn btn-log';
     if (logMode === 'ringkas') {
         logModeBtn.classList.add('active');
@@ -1520,16 +1687,19 @@ function toggleLogMode() {
     }
     
     // Bersihkan terminal saat ganti mode
-    // terminalLog.innerHTML = '';
+    terminalLog.innerHTML = '';
+    logEntryCount = 0;
+    terminalCount.textContent = '0 lines';
+    lastLoggedDataHash = '';
     
     logTerminal(`📋 Log mode: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
     
     if (logMode === 'ringkas') {
-        logTerminal(`📋 Ringkas: update setiap 1 detik (ringkasan data)`, 'log-ringkas', true);
+        logTerminal(`📋 Ringkas: hanya menampilkan panjang data yang diterima`, 'log-length', true);
     } else if (logMode === 'normal') {
         logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap)`, 'log-normal', true);
     } else {
-        logTerminal(`📋 Detail: hanya tampilkan RAW data (tanpa update periodik)`, 'log-detail', true);
+        logTerminal(`📋 Detail: tampilkan RAW data + info penting`, 'log-detail', true);
     }
 }
 
@@ -1555,13 +1725,17 @@ function disconnect() {
     resetCollection();
     updateMTUInfo(0);
     lastBMSData = null;
+    lastLoggedDataHash = '';
     logTerminal('⛔ Koneksi diputus', 'error', true);
 }
 
 function resetTerminal() {
     terminalLog.innerHTML = '';
+    logEntryCount = 0;
+    terminalCount.textContent = '0 lines';
     lastBMSData = null;
     lastLogTime = 0;
+    lastLoggedDataHash = '';
     logTerminal('🔄 Terminal di-reset', 'info', true);
     logTerminal(`📋 Log mode: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
     resetAllUI();
@@ -1589,6 +1763,7 @@ scanBtn.addEventListener('click', connectBle);
 devInfoBtn.addEventListener('click', sendDevInfo);
 bmsInfoBtn.addEventListener('click', sendBmsInfo);
 resetBtn.addEventListener('click', resetTerminal);
+clearTerminalBtn.addEventListener('click', resetTerminal);
 logModeBtn.addEventListener('click', toggleLogMode);
 sendBtn.addEventListener('click', sendData);
 
@@ -1611,17 +1786,23 @@ disconnectBtn.addEventListener('click', disconnect);
 // ============================================================
 // 22. INISIALISASI
 // ============================================================
+lastLoggedDataHash = '';
+logEntryCount = terminalLog.children.length;
+terminalCount.textContent = `${logEntryCount} lines`;
+terminalBadge.textContent = LOG_MODE_LABELS[logMode];
+terminalBadge.className = 'badge ' + logMode;
+
 logTerminal('🚀 BMS Terminal v3 - Log Mode siap', 'info', true);
 logTerminal('💡 Pastikan Bluetooth HP aktif', 'info', true);
 logTerminal('📌 Klik "Cari BMS" untuk mulai scanning', 'info', true);
 logTerminal(`📋 Mode saat ini: ${LOG_MODE_LABELS[logMode]}`, 'info', true);
 
 if (logMode === 'ringkas') {
-    logTerminal(`📋 Ringkas: update setiap 1 detik (ringkasan data)`, 'log-ringkas', true);
+    logTerminal(`📋 Ringkas: hanya menampilkan panjang data yang diterima`, 'log-length', true);
 } else if (logMode === 'normal') {
     logTerminal(`📋 Normal: update setiap 1 detik (hasil parsing lengkap)`, 'log-normal', true);
 } else {
-    logTerminal(`📋 Detail: hanya tampilkan RAW data`, 'log-detail', true);
+    logTerminal(`📋 Detail: tampilkan RAW data + info penting`, 'log-detail', true);
 }
 
 updateMTUInfo(0);
